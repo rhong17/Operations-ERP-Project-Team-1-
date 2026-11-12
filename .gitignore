@@ -1,0 +1,7 @@
+dist/
+site.tar.gz
+.wrangler/
+.env*
+.dev.vars
+node_modules/
+.DS_Store
