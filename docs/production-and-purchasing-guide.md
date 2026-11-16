@@ -3,7 +3,7 @@
 Owner: Riley · Covers rubric items **#6 Production Orders** and **#7 Purchase Orders and Suppliers**
 Code: `worker/domain.mjs` (logic) and `worker/index.html` (screens) · Checked against the live site on 2026-11-14
 
-> **⚠ Status of the new production features (updated 2026-11-14).** Part 2 describes four new work order features: **material check, cancel, actual start/finish times, and per-issue quality reasons.** They're built and tested on Riley's Mac (on the local branch `production-improvements`), but **not pushed to GitHub and not on the live site yet**. Until the Codex teammate republishes them, the live ERP still behaves the old way: no cancel button, click-only times, and one reason per work order.
+> **⚠ Status of the new production features (updated 2026-11-16).** Part 2 describes four new work order features: **material check, cancel, actual start/finish times, and per-issue quality reasons.** They're tested and **on GitHub (`main`)**, but **not on the live site until the Codex teammate pulls and republishes**. Until then, the live ERP still behaves the old way: no cancel button, click-only times, and one reason per work order.
 
 ---
 
@@ -187,10 +187,10 @@ Each supplier card is calculated from PO history:
 | Create WO with item, quantity, location | ✅ |
 | Issuing consumes components per BOM | ✅ |
 | Completing receives finished goods at rolled-up cost | ✅ (materials only, no labor) |
-| Qty started / good / scrapped / reworked + reason code | ✅ now one reason per problem (local build, not live yet) |
-| Start and finish times | ✅ actual times can be entered and are validated (local build; live site still uses click times) |
-| *(extra)* Cancel a work order | ✅ with material return (local build, not live yet) |
-| *(extra)* Material availability check | ✅ with transfer/PO shortcuts (local build, not live yet) |
+| Qty started / good / scrapped / reworked + reason code | ✅ now one reason per problem (on GitHub; live after republish) |
+| Start and finish times | ✅ actual times can be entered and are validated (on GitHub; live after republish) |
+| *(extra)* Cancel a work order | ✅ with material return (on GitHub; live after republish) |
+| *(extra)* Material availability check | ✅ with transfer/PO shortcuts (on GitHub; live after republish) |
 | ≥3 production and quality metrics | ✅ (4) |
 | Production report over a date range | ✅ (filter + CSV) |
 
@@ -230,15 +230,15 @@ Each supplier card is calculated from PO history:
 | **P8** | Finished products (tote, apron and so on) are assigned to fabric suppliers and can be put on a PO | Only allow purchased components on POs |
 | **P9** | Overdue supplier payments aren't highlighted (Carolina's next payment was due 11-08) | Red **Overdue** tag on the supplier card and payments list |
 | **P10** | Fill rate includes open POs that aren't due yet, which penalizes a supplier for orders it hasn't had time to fill | Count only units on received/closed or overdue POs |
-| ~~**W1**~~ | ✅ **Built (local, not pushed):** Cancel for Planned and In Progress WOs; issued materials are returned | — |
-| ~~**W2**~~ | ✅ **Built (local, not pushed):** actual start/finish times on Complete, validated and audited | — |
+| ~~**W1**~~ | ✅ **Built (on GitHub, live after republish):** Cancel for Planned and In Progress WOs; issued materials are returned | — |
+| ~~**W2**~~ | ✅ **Built (on GitHub, live after republish):** actual start/finish times on Complete, validated and audited | — |
 | **W3** | The demo products' starting cost doesn't match their BOM cost (cushion cover $11 vs $14.70 in materials). The first production run jumps the average cost noticeably | Set starting cost = BOM cost (+ optional labor) |
 | **W4** | MRP ignores work orders: planned WOs don't create component demand, and in-progress WOs don't count as incoming finished goods | Include WOs in MRP |
-| ~~**W6**~~ | ✅ **Built (local, not pushed):** one line per quality problem (type + units + reason); "Rework completed" removed | — |
+| ~~**W6**~~ | ✅ **Built (on GitHub, live after republish):** one line per quality problem (type + units + reason); "Rework completed" removed | — |
 | **W8** | Demo WO history is uniform: all at Main Workshop, all exactly 4 hours, and every defect is "Seam failure" | Vary it when the demo data is regenerated |
 | **W9** | *(new)* Natural canvas is supplied by **Atlas Hardware** in the demo data, so the material check's PO shortcut orders fabric from a hardware supplier | Fix supplier assignments when the demo data is regenerated |
 | **W10** | *(new)* Times now show in local time, so the demo history (stored as 8:00 AM UTC) appears as ~1:00–5:00 AM in Utah | Store realistic shop hours when the demo data is regenerated |
-| — | *(also fixed while testing)* The Production page's end-date filter and the transfer form's Destination shared one internal ID, which would have pre-filled the wrong destination | Fixed in the local build |
+| — | *(also fixed while testing)* The Production page's end-date filter and the transfer form's Destination shared one internal ID, which would have pre-filled the wrong destination | Fixed (on GitHub) |
 
 ### 🟢 Demo prep (live data, no code change needed)
 - **Totes can barely be made:** only 7 at Main Workshop, 9 at North Warehouse, **0 at Downtown Pickup** (not enough Natural canvas). Other products can do ~115 at Main and ~20 at Downtown. **Demo production at Main Workshop**, or receive a canvas PO first, which is a nice story that connects both modules. *Once the new build is live,* the material check turns this into a strength: ask for 10 totes, show "Short 6," and fix it with the Transfer button.
