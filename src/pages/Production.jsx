@@ -45,7 +45,7 @@ function Orders() {
       {list.length === 0 ? <Empty>No work orders here.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>WO</th><th>Item</th><th className="num">Qty started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th>Due</th><th>Start → finish</th><th className="num">Unit cost</th><th>Status</th></tr></thead><tbody>
         {list.map(w => <tr key={w.id} className={'click ' + (w.status === 'cancelled' ? 'dim' : '')} onClick={() => setOpenId(w.id)}>
           <td><b>{w.id}</b></td><td>{ix.items.get(w.item_id)?.name}</td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good ?? ''}</td><td className="num">{w.qty_scrap || ''}</td><td className="num">{w.qty_rework || ''}</td>
-          <td>{dfmt(w.due_date)}</td><td className="small">{w.started_at ? dt(w.started_at) : ''}{w.finished_at && w.status === 'completed' ? ' → ' + dt(w.finished_at) : ''}</td>
+          <td className="nowrap">{dfmt(w.due_date)}</td><td className="small">{w.started_at ? dt(w.started_at) : ''}{w.finished_at && w.status === 'completed' ? ' → ' + dt(w.finished_at) : ''}</td>
           <td className="num">{w.unit_cost ? money(w.unit_cost) : ''}</td><td><StatusBadge status={w.status} /></td></tr>)}
       </tbody></table></div>}
     </Card>
@@ -224,7 +224,7 @@ function Report() {
     </Card>
     <Card title={`Work orders finished ${dfmt(from)} – ${dfmt(to)}`}>
       <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>WO</th><th>Item</th><th>Start</th><th>Finish</th><th>Due</th><th className="num">Started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th className="num">Unit cost</th></tr></thead><tbody>
-        {[...r.wos].sort((a, b) => b.finished_at.localeCompare(a.finished_at)).map(w => <tr key={w.id}><td>{w.id}</td><td>{ix.items.get(w.item_id)?.name}</td><td>{dt(w.started_at)}</td><td>{dt(w.finished_at)}</td>
+        {[...r.wos].sort((a, b) => b.finished_at.localeCompare(a.finished_at)).map(w => <tr key={w.id}><td>{w.id}</td><td>{ix.items.get(w.item_id)?.name}</td><td className="nowrap">{dt(w.started_at)}</td><td className="nowrap">{dt(w.finished_at)}</td>
           <td className={limaDate(w.finished_at) > w.due_date ? 'neg' : ''}>{dfmt(w.due_date)}</td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good}</td><td className="num">{w.qty_scrap}</td><td className="num">{w.qty_rework}</td><td className="num">{money(w.unit_cost)}</td></tr>)}
       </tbody></table></div>
     </Card>

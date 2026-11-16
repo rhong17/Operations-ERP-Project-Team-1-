@@ -48,7 +48,7 @@ function POList() {
           return <tr key={p.id} className="click" onClick={() => setOpenId(p.id)}>
             <td><b>{p.id}</b></td><td>{ix.suppliers.get(p.supplier_id)?.name}</td>
             <td className="small">{(ix.poLinesBy.get(p.id) || []).map(l => ix.items.get(l.item_id)?.name).join(', ').slice(0, 60)}</td>
-            <td>{dfmt(p.sent_date)}</td><td>{dfmt(p.expected_date)}</td>
+            <td className="nowrap">{dfmt(p.sent_date)}</td><td className="nowrap">{dfmt(p.expected_date)}</td>
             <td>{last ? dfmt(last) : ''} {late !== null && late > 0 && <Badge tone="red">{late} d late</Badge>}{late !== null && late <= 0 && last && <Badge tone="green">on time</Badge>}</td>
             <td className="num">{money(poValue(ix, p.id))}</td><td><StatusBadge status={p.status} /></td></tr>
         })}
@@ -134,7 +134,7 @@ function PODetail({ id, onClose }) {
           if (r) setQtys({})
         }}>Receive</Btn>
       </div>}
-      {recs.length > 0 && <><h3>Receipts</h3><table className="tbl compact"><tbody>{recs.map(r => <tr key={r.id}><td>{dfmt(r.received_date)}</td><td>{ix.items.get(r.item_id)?.name}</td><td className="num">{qtyFmt(r.qty)}</td><td>{ix.locations.get(r.location_id)?.name}</td>
+      {recs.length > 0 && <><h3>Receipts</h3><table className="tbl compact"><tbody>{recs.map(r => <tr key={r.id}><td className="nowrap">{dfmt(r.received_date)}</td><td>{ix.items.get(r.item_id)?.name}</td><td className="num">{qtyFmt(r.qty)}</td><td>{ix.locations.get(r.location_id)?.name}</td>
         <td>{r.received_date > p.expected_date ? <Badge tone="red">{daysBetween(p.expected_date, r.received_date)} d late</Badge> : <Badge tone="green">on time</Badge>}</td></tr>)}</tbody></table></>}
       {billed - paid > 0.005 && <div className="row gap" style={{ marginTop: 10 }}>
         <span className="muted">Record payment</span><input type="number" style={{ width: 140 }} placeholder={(billed - paid).toFixed(2)} value={pay} onChange={e => setPay(e.target.value)} />
@@ -164,7 +164,7 @@ function Scorecard() {
     {open && <Modal wide title={`${open.supplier.name} — delivery history`} onClose={() => setOpen(null)}>
       <div className="stats"><Stat label="On-time" value={pct(open.onTimeRate, 0)} /><Stat label="Lead time actual vs quoted" value={`${num(open.avgLT, 1)} vs ${num(open.avgQuoted, 1)} d`} /><Stat label="Fill rate" value={pct(open.fillRate)} /><Stat label="Score" value={open.score} sub={open.rating} /></div>
       <table className="tbl compact"><thead><tr><th>PO</th><th>Sent</th><th>Expected</th><th>Received</th><th className="num">Actual LT</th><th className="num">Late</th></tr></thead><tbody>
-        {open.delivered.map(d => <tr key={d.po.id}><td>{d.po.id}</td><td>{dfmt(d.po.sent_date)}</td><td>{dfmt(d.po.expected_date)}</td><td>{dfmt(d.last)}</td><td className="num">{d.actualLT} d</td><td className={'num ' + (d.lateDays ? 'neg' : 'pos')}>{d.lateDays ? `${d.lateDays} d` : 'on time'}</td></tr>)}
+        {open.delivered.map(d => <tr key={d.po.id}><td>{d.po.id}</td><td className="nowrap">{dfmt(d.po.sent_date)}</td><td className="nowrap">{dfmt(d.po.expected_date)}</td><td className="nowrap">{dfmt(d.last)}</td><td className="num">{d.actualLT} d</td><td className={'num ' + (d.lateDays ? 'neg' : 'pos')}>{d.lateDays ? `${d.lateDays} d` : 'on time'}</td></tr>)}
       </tbody></table>
       {open.payables.length > 0 && <><h3>Open invoices</h3><table className="tbl compact"><tbody>{open.payables.map(x => <tr key={x.po}><td>{x.po}</td><td>due {dfmt(x.due)}</td><td className="num">{money(x.owed)}</td><td>{x.overdue && <Badge tone="red">overdue</Badge>}</td></tr>)}</tbody></table></>}
     </Modal>}

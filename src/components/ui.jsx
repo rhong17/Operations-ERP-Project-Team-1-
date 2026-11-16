@@ -4,7 +4,12 @@ import JsBarcode from 'jsbarcode'
 import { useData } from '../lib/data.jsx'
 import { money, qtyFmt, dt } from '../lib/calc.js'
 
+// Page header: title, one-line subtitle, actions, and a small "How this works" button.
+// The ERP explanation stays one click away instead of filling the top of every page.
 export function Page({ title, subtitle, actions, how, children }) {
+  const key = 'how:' + location.hash.split('?')[0]
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) === 'open' } catch { return false } })
+  const toggle = () => { setOpen(!open); try { localStorage.setItem(key, open ? 'closed' : 'open') } catch { /* ignore */ } }
   return (
     <div className="page">
       <div className="page-head">
@@ -12,25 +17,20 @@ export function Page({ title, subtitle, actions, how, children }) {
           <h1>{title}</h1>
           {subtitle && <p className="muted">{subtitle}</p>}
         </div>
-        {actions && <div className="row gap">{actions}</div>}
+        <div className="row gap wrap">
+          {how && <button className={'how-btn ' + (open ? 'on' : '')} onClick={toggle} aria-expanded={open}>ⓘ How this works</button>}
+          {actions}
+        </div>
       </div>
-      {how && <HowItWorks>{how}</HowItWorks>}
+      {how && open && <HowItWorks>{how}</HowItWorks>}
       {children}
     </div>
   )
 }
 
-// "How this works" — explains the ERP concept behind each screen (for learning and the demo)
-export function HowItWorks({ children, title = 'How this works in the ERP' }) {
-  const key = 'how:' + location.hash.split('?')[0]
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== 'closed' } catch { return true } })
-  const toggle = () => { setOpen(!open); try { localStorage.setItem(key, open ? 'closed' : 'open') } catch { /* ignore */ } }
-  return (
-    <div className={'how ' + (open ? 'open' : '')}>
-      <button className="how-toggle" onClick={toggle}>{open ? '▾' : '▸'} {title}</button>
-      {open && <div className="how-body">{children}</div>}
-    </div>
-  )
+// The explanation panel (also usable on its own inside a page)
+export function HowItWorks({ children }) {
+  return <div className="how"><div className="how-body">{children}</div></div>
 }
 
 export const Card = ({ title, actions, children, className = '' }) => (
@@ -44,7 +44,7 @@ export const Card = ({ title, actions, children, className = '' }) => (
 export function useUsd() {
   const { db } = useData()
   const rate = Number(db?.settings?.find(s => s.key === 'usd_rate')?.value) || 0
-  return n => (rate && n != null && !Number.isNaN(Number(n)))
+  return n => (rate && n && !Number.isNaN(Number(n)))
     ? '≈ US$ ' + (Number(n) / rate).toLocaleString('en-US', { maximumFractionDigits: Math.abs(n / rate) < 100 ? 2 : 0 })
     : ''
 }

@@ -51,7 +51,7 @@ function OnHand() {
         <tbody>{items.map(i => {
           const p = policy.get(i.id), tot = ix.onHand(i.id)
           return <tr key={i.id}>
-            <td>{i.name}<span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.item_type}</div></td><td className="small">{i.ean}</td>
+            <td>{i.name}<span className="es">{i.name_es}</span></td><td className="small">{i.ean}<div className="muted">{i.id}</div></td>
             {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? qtyFmt(v) : <span className="muted">·</span>}</td> })}
             <td className="num"><b>{qtyFmt(tot, i.uom)}</b> {p?.belowRop && <Badge tone="amber">≤ ROP</Badge>}</td>
             <td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{money(tot * i.avg_cost)}</td>
@@ -180,7 +180,7 @@ function Backorders() {
     <Card title="Backordered sales-order lines">
       {rows.length === 0 ? <Empty>Everything on open orders is in stock at its shipping location.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Item</th><th className="num">Open</th><th className="num">On hand at ship location</th><th className="num">Backordered</th><th>Requested</th><th>Est. available</th></tr></thead><tbody>
         {rows.map((r, k) => <tr key={k}><td>{r.s.id}</td><td>{ix.customers.get(r.s.customer_id)?.name}</td><td>{ix.items.get(r.l.item_id)?.name}</td><td className="num">{r.open}</td><td className="num">{qtyFmt(r.avail)}</td>
-          <td className="num neg">{qtyFmt(r.short)}</td><td>{dfmt(r.s.requested_date)}</td><td><b className={r.eta.date > r.s.requested_date ? 'neg' : ''}>{dfmt(r.eta.date)}</b><div className="small muted">{r.eta.basis}</div></td></tr>)}
+          <td className="num neg">{qtyFmt(r.short)}</td><td className="nowrap">{dfmt(r.s.requested_date)}</td><td><b className={r.eta.date > r.s.requested_date ? 'neg' : ''}>{dfmt(r.eta.date)}</b><div className="small muted">{r.eta.basis}</div></td></tr>)}
       </tbody></table></div>}
     </Card>
   )
@@ -193,7 +193,7 @@ function Moves() {
   return (
     <Card title="Stock movements" actions={<select value={kind} onChange={e => setKind(e.target.value)}><option value="">All types</option>{[...new Set(db.inv_moves.map(m => m.kind))].map(k => <option key={k}>{k}</option>)}</select>}>
       <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>When</th><th>Type</th><th>Document</th><th>Item</th><th>Location</th><th className="num">Qty</th><th className="num">Unit cost</th><th>Reason</th></tr></thead><tbody>
-        {list.map(m => <tr key={m.id}><td>{dt(m.at)}</td><td>{m.kind}</td><td>{m.doc_id}</td><td>{ix.items.get(m.item_id)?.name}</td><td>{ix.locations.get(m.location_id)?.name}</td>
+        {list.map(m => <tr key={m.id}><td className="nowrap">{dt(m.at)}</td><td>{m.kind}</td><td>{m.doc_id}</td><td>{ix.items.get(m.item_id)?.name}</td><td>{ix.locations.get(m.location_id)?.name}</td>
           <td className={'num ' + (m.qty < 0 ? 'neg' : 'pos')}>{m.qty > 0 ? '+' : ''}{num(m.qty, 3)}</td><td className="num">{money(m.unit_cost)}</td><td>{m.reason || ''}</td></tr>)}
       </tbody></table></div>
     </Card>

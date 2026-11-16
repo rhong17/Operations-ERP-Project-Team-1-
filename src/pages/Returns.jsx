@@ -121,7 +121,7 @@ function ReturnHistory() {
     </Card>
     <Card title="All returns and exchanges">
       {list.length === 0 ? <Empty>No returns yet.</Empty> : <table className="tbl"><thead><tr><th>Return</th><th>When</th><th>Original</th><th>Items</th><th className="num">Refund</th><th>Exchange sale</th><th className="num">Net</th></tr></thead><tbody>
-        {list.map(r => <tr key={r.id}><td><b>{r.id}</b> <Badge tone={r.kind === 'exchange' ? 'blue' : 'grey'}>{r.kind}</Badge></td><td>{dt(r.at)}</td><td>{r.sale_id}</td>
+        {list.map(r => <tr key={r.id}><td><b>{r.id}</b> <Badge tone={r.kind === 'exchange' ? 'blue' : 'grey'}>{r.kind}</Badge></td><td className="nowrap">{dt(r.at)}</td><td>{r.sale_id}</td>
           <td className="wrap-cell">{(linesBy.get(r.id) || []).map(l => `${l.qty}× ${ix.items.get(l.item_id)?.name} (${l.reason})`).join('; ')}</td>
           <td className="num">{money(r.refund_total)}</td><td>{r.exchange_sale_id || ''}</td><td className="num">{r.kind === 'exchange' ? money(r.net_due) : ''}</td></tr>)}
       </tbody></table>}

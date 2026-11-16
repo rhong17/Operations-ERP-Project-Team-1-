@@ -43,7 +43,7 @@ export default function MRP() {
         {mrp.suggestions.length === 0 ? <Empty>No planned orders: stock plus open orders cover every requirement in the horizon.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Level</th><th className="num">Qty</th><th>Needed (week)</th><th className="num">Lead time</th><th>Order by</th><th>Action</th></tr></thead><tbody>
           {mrp.suggestions.map((s, k) => <tr key={k}>
             <td>{s.item.name}<div className="small muted">{s.item.id} · {s.item.lot_rule}{s.item.lot_rule === 'FOQ' ? ` ${s.item.lot_qty}` : ''}</div></td><td>{s.level}</td>
-            <td className="num"><b>{qtyFmt(s.qty, s.item.uom)}</b></td><td>{dshort(s.needDate)} (wk {s.week})</td><td className="num">{s.item.lead_time_days} d</td>
+            <td className="num"><b>{qtyFmt(s.qty, s.item.uom)}</b></td><td className="nowrap">{dshort(s.needDate)} (wk {s.week})</td><td className="num">{s.item.lead_time_days} d</td>
             <td>{s.late ? <><Badge tone="red">Past due</Badge> <span className="neg">{dfmt(s.orderBy)}</span></> : dfmt(s.orderBy)}</td>
             <td>{s.action === 'Work order'
               ? <button className="btn small" onClick={() => setWo({ item_id: s.item.id, qty: Math.ceil(s.qty), notes: `MRP planned order, needed ${s.needDate}` })}>Create WO</button>
