@@ -1,23 +1,30 @@
 # Textiles Move ERP
 
-A private, server-backed manufacturing ERP demonstration. Platform-authenticated identity, shared D1 data, server-enforced owner/staff/customer access, and optimistic revision checks. Changes poll every five seconds; editing a form does not replace its inputs.
+A working mini-ERP for **Textiles Move**, a knitwear manufacturer in Gamarra, Lima (Peru), built for BYU's ERP project.
+Real company products and barcodes; sales, inventory, production, purchasing, MRP and financials in one shared database.
 
-## Demonstration data
-25 fictional textile items, 5 parent BOMs, 3 locations, 6 suppliers, 10 customers, 210 days of historical sales, PO history and work order history. Product catalog, contact information, and records are illustrative and are not imported from the company's actual operational systems. Historical sales and production records do not replay against current stock.
+**Live site:** https://rhong17.github.io/Operations-ERP-Project-Team-1-/ (after the one-time setup in `docs/SETUP.md`)
 
-## Operation
-1. Open while signed in as the site owner to initialize data.
-2. Inventory → Barcode labels → Print labels. Print at 100%; attach to physical items.
-3. Focus a barcode field and use a USB keyboard-wedge scanner with Enter suffix. Manual barcode entry works as well.
-4. Settings → export backup/templates before importing actual data. Import suppliers, then items, customers, and historical sales.
-5. Additional users need Site-level access granted by the owner before app roles apply. Unlisted users default to customers; the app owner assigns staff emails.
-6. PO dispatch opens an email draft; the operator sends it through their mail client. No automatic email delivery or payment processing is connected.
+| Guide | For |
+|---|---|
+| [docs/SETUP.md](docs/SETUP.md) | One-time setup: Supabase database, GitHub Pages, inviting the team |
+| [docs/TEAM-GUIDE.md](docs/TEAM-GUIDE.md) | How teammates make changes with AI on their own branch and publish them |
+| [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) | Understanding the ERP and MRP for the demo, formulas, rehearsal checklist |
+| [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) | Rules your AI coding assistant reads automatically |
 
-## Financial and planning conventions
-USD; net revenue excludes sales tax. A parent sale draws finished stock first and assembles remaining kits from components at checkout. Production consumes components at issue and capitalizes good-unit component cost at completion; scrap cost is expensed. Rework is a subset of good units. Defective returns stay in the return quarantine register rather than sellable quantities. Inventory losses retain COGS; resellable returns reverse original COGS and update weighted average stock cost. PO invoicing starts on first receipt. Supplier fill rate includes open orders; delivery rate and lead time use completed POs. MRP explodes confirmed parent quantities and allocates available components chronologically across four weeks. Turnover uses recorded COGS over average opening/current inventory including WIP. Ordering suggestions use historical usage, editable order cost and annual holding rate, lead time demand and safety days.
+## Stack
+React + Vite (front end) · Supabase PostgreSQL, Auth, Realtime (database, logins, live updates) ·
+PL/pgSQL transaction functions with double-entry accounting · GitHub Actions → GitHub Pages (auto-deploy) ·
+built with Claude Code.
 
-## Scope
-A functional class/demo-scale ERP, not audited accounting, payroll, cash settlement or a full production deployment. One shared versioned state row keeps mutations atomic; normalized records and indexed queries would be needed for large datasets. The Site remains private unless the owner changes sharing.
+## Commands
+```
+npm install          # once
+npm run dev          # local site at http://localhost:5173 (uses the shared Supabase database)
+npm run build        # production build
+npm run test:calc    # MRP / ROP / EOQ / scorecard checks (runs on every PR)
+npm test             # + 58 database transaction checks (needs local PostgreSQL)
+npm run seed         # regenerate supabase/03_seed.sql from the company workbook
+```
 
-## Validation
-Run node scripts/test.mjs, bash scripts/build.sh, and node scripts/validate-artifact.mjs. Automated tests cover transactions, stock/financial effects, authorization, customer isolation, conflicts, and all screen/form renders. Physical scanner/printer and interactive browser testing require a supported browser/device.
+The previous ChatGPT-Codex version is preserved on the `codex-version` branch.

@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "dev-backend", "runtimeExecutable": "node", "runtimeArgs": ["scripts/dev-backend.mjs"], "port": 54321 },
+    { "name": "erp-local", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--mode", "devbackend", "--port", "5173"], "port": 5173 }
+  ]
+}
