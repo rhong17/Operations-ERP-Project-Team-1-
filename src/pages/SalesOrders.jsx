@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
 import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge } from '../components/ui.jsx'
-import { money, qtyFmt, dfmt, dt, etaFor, onOrder, setting, todayLima, addDays, round } from '../lib/calc.js'
+import { money, qtyFmt, dfmt, dt, etaFor, onOrder, setting, todayLima, addDays, round, allocations } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
 export default function SalesOrders() {
@@ -11,14 +11,17 @@ export default function SalesOrders() {
   const [openId, setOpenId] = useState(null)
   const orders = useMemo(() => db.sales.filter(s => s.kind === 'SO' && (tab === 'all' ? true : tab === 'open' ? s.status === 'placed' : tab === 'portal' ? s.channel === 'portal' : s.status === tab))
     .sort((a, b) => (b.order_date || '').localeCompare(a.order_date || '')).slice(0, 300), [db.sales, tab])
+  const alloc = useMemo(() => allocations(db, ix), [db, ix])
   const total = s => (ix.linesBySale.get(s.id) || []).reduce((a, l) => a + l.qty * l.unit_price * (1 - l.discount_pct), 0)
-  const backQty = s => s.status === 'placed' ? (ix.linesBySale.get(s.id) || []).reduce((a, l) => a + Math.max(0, l.qty - l.qty_shipped - Math.max(0, ix.onHand(l.item_id, s.location_id))), 0) : 0
+  // short = open qty not covered by stock after earlier orders took their share (allocation)
+  const backQty = s => s.status === 'placed' ? (ix.linesBySale.get(s.id) || []).reduce((a, l) => a + (alloc.lines.get(l.id)?.short || 0), 0) : 0
 
   return (
     <Page title="Sales Orders" subtitle="Order Placed → Fulfilled → Closed (or Cancelled)"
       actions={<button className="btn primary" onClick={() => setCreating(true)}>+ New sales order</button>}
       how={<>
         <p>A <b>sales order</b> is a customer commitment that ships later (wholesale boutiques, schools, export, or a customer-portal pickup). Creating it does <i>not</i> move stock — but it immediately becomes <b>demand in MRP</b> and <b>committed stock</b> in the reorder calculation.</p>
+        <p><b>Allocation (available-to-promise):</b> stock at each location is reserved for open orders first-come, first-served (earliest requested date first), so two orders never count the same units — a later order shows <i>short</i> if earlier orders already claim the stock.</p>
         <p><b>Fulfil</b> ships whatever is on hand at the shipping location (stock ↓, revenue and COGS posted). Anything short stays <b>backordered</b> with an <b>estimated available date</b>: the earliest open PO or work order that covers it, otherwise today + the item's lead time. <b>Close</b> ends the order (even if partly shipped); <b>Cancel</b> is only for orders that shipped nothing.</p>
       </>}>
       <Tabs value={tab} onChange={setTab} tabs={[['open', 'Order Placed'], ['fulfilled', 'Fulfilled'], ['closed', 'Closed'], ['cancelled', 'Cancelled'], ['portal', 'Portal pickups'], ['all', 'All']]} />
@@ -48,6 +51,7 @@ function NewOrder({ onClose, onCreated }) {
   const [f, setF] = useState({ customer_id: 'CUS03', location_id: 'LOC03', requested_date: addDays(todayLima(), 7), notes: '' })
   const [lines, setLines] = useState([])
   const cust = ix.customers.get(f.customer_id)
+  const alloc = useMemo(() => allocations(db, ix), [db, ix])
   const add = item => setLines(ls => ls.some(l => l.item.id === item.id) ? ls.map(l => l.item.id === item.id ? { ...l, qty: l.qty + 1 } : l) : [...ls, { item, qty: 1, price: netPrice(item, cust, igv), disc: 0 }])
   const save = async () => {
     const r = await call('create_sales_order', { p: { ...f, lines: lines.map(l => ({ item_id: l.item.id, qty: l.qty, unit_price: l.price, discount_pct: l.disc / 100 })) } },
@@ -64,9 +68,10 @@ function NewOrder({ onClose, onCreated }) {
         <Field label="Notes"><input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} /></Field>
       </div>
       <div style={{ margin: '12px 0' }}><ItemSearch onPick={add} filter={i => i.item_type !== 'Component'} stockAt={f.location_id} /></div>
-      {lines.length > 0 && <table className="tbl lines"><thead><tr><th>Item</th><th className="num">Available at location</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Disc %</th><th></th></tr></thead><tbody>
+      {lines.length > 0 && <table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand at location</th><th className="num">Available (after open orders)</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Disc %</th><th></th></tr></thead><tbody>
         {lines.map((l, i) => (
           <tr key={l.item.id}><td>{l.item.name}</td><td className="num">{qtyFmt(ix.onHand(l.item.id, f.location_id), l.item.uom)}</td>
+            <td className={'num ' + (l.qty > alloc.freeAt(l.item.id, f.location_id) ? 'neg' : '')}>{qtyFmt(alloc.freeAt(l.item.id, f.location_id), l.item.uom)}{l.qty > alloc.freeAt(l.item.id, f.location_id) && <div className="small">{qtyFmt(l.qty - alloc.freeAt(l.item.id, f.location_id))} will be backordered</div>}</td>
             <td className="num"><input type="number" min="1" value={l.qty} onChange={e => setLines(ls => ls.map((x, k) => k === i ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} /></td>
             <td className="num"><input type="number" step="0.01" value={l.price} onChange={e => setLines(ls => ls.map((x, k) => k === i ? { ...x, price: Number(e.target.value) } : x))} /></td>
             <td className="num"><input type="number" min="0" max="50" value={l.disc} onChange={e => setLines(ls => ls.map((x, k) => k === i ? { ...x, disc: Number(e.target.value) || 0 } : x))} /></td>
@@ -84,6 +89,7 @@ export function OrderDetail({ id, onClose }) {
   if (!s) return null
   const lines = ix.linesBySale.get(id) || []
   const orders = onOrder(db, ix)
+  const alloc = allocations(db, ix)
   const tot = lines.reduce((a, l) => { const n = l.qty * l.unit_price * (1 - l.discount_pct); return { net: a.net + n, tax: a.tax + n * l.tax_rate } }, { net: 0, tax: 0 })
   const returns = db.returns.filter(r => r.sale_id === id)
   return (
@@ -105,8 +111,10 @@ export function OrderDetail({ id, onClose }) {
         {lines.map(l => {
           const it = ix.items.get(l.item_id)
           const open = s.status === 'placed' ? l.qty - l.qty_shipped : 0
-          const avail = ix.onHand(l.item_id, loc || s.location_id)
-          const short = Math.max(0, open - avail)
+          // ship-from = order location: use allocation (earlier orders keep their share);
+          // a different ship-from chosen here: compare to free stock there
+          const shipLoc = loc || s.location_id
+          const short = !open ? 0 : shipLoc === s.location_id ? (alloc.lines.get(l.id)?.short ?? open) : Math.max(0, open - alloc.freeAt(l.item_id, shipLoc))
           const eta = short > 0 ? etaFor(l.item_id, short, db, ix, todayLima(), orders) : null
           return <tr key={l.id}><td>{it?.name}<div className="muted small">{it?.ean}</div></td><td className="num">{qtyFmt(l.qty, it?.uom)}</td><td className="num">{qtyFmt(l.qty_shipped)}</td>
             <td className="num">{l.qty_returned ? qtyFmt(l.qty_returned) : ''}</td>

@@ -109,3 +109,20 @@ test('supplier scorecard and production report compute from history', { skip: !d
   console.log('scorecard:', sc.map(s => `${s.supplier.id} ${s.score} ${s.rating} ontime ${(s.onTimeRate * 100).toFixed(0)}% fill ${(s.fillRate * 100).toFixed(1)}% LT ${s.avgLT.toFixed(1)}/${s.avgQuoted.toFixed(1)} owed ${s.owed}`).join('\n  '))
   console.log('production:', pr.count, 'WOs, yield', pr.yield.toFixed(3), 'FPY', pr.fpy.toFixed(3), 'on-time', pr.onTimeRate.toFixed(2), 'cycle h', pr.avgCycleHours.toFixed(1))
 })
+
+test('Allocation: two open orders cannot both claim the same stock', async () => {
+  const { allocations } = await import('../../src/lib/calc.js')
+  const db = {
+    settings: [], locations: [{ id: 'L1', is_quality_hold: false }, { id: 'QH', is_quality_hold: true }],
+    items: [{ id: 'T', active: true }], stock: [{ item_id: 'T', location_id: 'L1', qty: 40 }, { item_id: 'T', location_id: 'QH', qty: 5 }],
+    bom: [], purchase_orders: [], po_lines: [], work_orders: [],
+    sales: [{ id: 'B', kind: 'SO', status: 'placed', location_id: 'L1', requested_date: '2026-11-25' },
+            { id: 'A', kind: 'SO', status: 'placed', location_id: 'L1', requested_date: '2026-11-20' }],
+    sales_lines: [{ id: 2, sale_id: 'B', item_id: 'T', qty: 30, qty_shipped: 0 }, { id: 1, sale_id: 'A', item_id: 'T', qty: 30, qty_shipped: 0 }],
+  }
+  const a = allocations(db, index(db))
+  assert.deepEqual(a.lines.get(1), { open: 30, allocated: 30, short: 0 })   // earlier requested date served first
+  assert.deepEqual(a.lines.get(2), { open: 30, allocated: 10, short: 20 })
+  assert.equal(a.committedOf('T'), 60)
+  assert.equal(a.freeAt('T', 'L1'), 0)
+})

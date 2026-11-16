@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
 import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode } from '../components/ui.jsx'
-import { money, qtyFmt, dt, dfmt, etaFor, onOrder, todayLima, inventoryPolicy, num } from '../lib/calc.js'
+import { money, qtyFmt, dt, dfmt, etaFor, onOrder, todayLima, inventoryPolicy, num, allocations } from '../lib/calc.js'
 
 export const ADJ_REASONS = ['Cycle count', 'Damaged', 'Lost / stolen', 'Found', 'Sample / display', 'Data correction', 'Scrap from quality hold']
 
@@ -17,6 +17,7 @@ export default function Inventory() {
         <ul>
           <li><b>Transfer</b> moves stock between locations (e.g. fabric from the Santa Anita warehouse to the workshop before a work order). Value doesn't change, so there is no accounting entry.</li>
           <li><b>Adjust / cycle count</b> corrects the system to what is physically there. A <b>reason code</b> is required; the difference × average cost goes to the <i>Inventory Adjustments</i> expense.</li>
+          <li><b>Committed vs. available:</b> open sales orders reserve (allocate) stock first-come, first-served by requested date. <i>Available</i> = usable on hand − committed, so a later order shows short instead of double-counting the same units.</li>
           <li><b>Backorders</b> are confirmed sales-order quantities we can't ship yet. The estimated available date comes from the earliest open PO / work order, otherwise today + the supplier's or workshop's lead time.</li>
           <li>Cost method: <b>weighted average</b> — each receipt blends its cost into the item's average.</li>
         </ul>
@@ -38,6 +39,7 @@ function OnHand() {
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const policy = useMemo(() => new Map(inventoryPolicy(db, ix).map(p => [p.item.id, p])), [db, ix])
+  const alloc = useMemo(() => allocations(db, ix), [db, ix])
   const locs = [...db.locations].sort((a, b) => a.sort - b.sort)
   const items = db.items.filter(i => i.active && (!type || i.item_type === type) && (!q || (i.name + (i.name_es || '') + i.ean + i.id).toLowerCase().includes(q.toLowerCase())))
   const total = items.reduce((a, i) => a + ix.onHand(i.id) * i.avg_cost, 0)
@@ -47,13 +49,15 @@ function OnHand() {
         <input style={{ maxWidth: 280 }} placeholder="Filter by name, barcode, ID" value={q} onChange={e => setQ(e.target.value)} />
         <select style={{ maxWidth: 200 }} value={type} onChange={e => setType(e.target.value)}><option value="">All types</option><option>Finished Good</option><option>Kit</option><option>Component</option></select>
       </div>
-      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th style={{ minWidth: 260 }}>Item</th><th>Barcode</th>{locs.map(l => <th key={l.id} className="num" title={l.name}>{l.id}<div className="small muted">{l.name.split(' ').slice(0, 3).join(' ')}</div></th>)}<th className="num">Usable total</th><th className="num">ROP</th><th className="num">Avg cost</th><th className="num">Value</th></tr></thead>
+      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th style={{ minWidth: 260 }}>Item</th><th>Barcode</th>{locs.map(l => <th key={l.id} className="num" title={l.name}>{l.id}<div className="small muted">{l.name.split(' ').slice(0, 3).join(' ')}</div></th>)}<th className="num">Usable total</th><th className="num" title="Open sales-order quantity not yet shipped">Committed</th><th className="num" title="Usable total − committed">Available</th><th className="num">ROP</th><th className="num">Avg cost</th><th className="num">Value</th></tr></thead>
         <tbody>{items.map(i => {
-          const p = policy.get(i.id), tot = ix.onHand(i.id)
+          const p = policy.get(i.id), tot = ix.onHand(i.id), com = alloc.committedOf(i.id), avl = tot - com
           return <tr key={i.id}>
             <td>{i.name}<span className="es">{i.name_es}</span></td><td className="small">{i.ean}<div className="muted">{i.id}</div></td>
             {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? qtyFmt(v) : <span className="muted">·</span>}</td> })}
             <td className="num"><b>{qtyFmt(tot, i.uom)}</b> {p?.belowRop && <Badge tone="amber">≤ ROP</Badge>}</td>
+            <td className="num">{com ? qtyFmt(com) : <span className="muted">·</span>}</td>
+            <td className={'num ' + (avl < 0 ? 'neg' : '')}>{qtyFmt(avl)}</td>
             <td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{money(tot * i.avg_cost)}</td>
           </tr>
         })}</tbody></table></div>
@@ -168,18 +172,19 @@ function Adjust() {
 function Backorders() {
   const { db, ix } = useData()
   const orders = onOrder(db, ix)
+  const alloc = allocations(db, ix)
   const rows = []
   for (const s of db.sales.filter(s => s.kind === 'SO' && s.status === 'placed')) {
     for (const l of ix.linesBySale.get(s.id) || []) {
-      const open = l.qty - l.qty_shipped
-      const avail = ix.onHand(l.item_id, s.location_id)
-      if (open > avail) rows.push({ s, l, open, avail, short: open - avail, eta: etaFor(l.item_id, open - avail, db, ix, todayLima(), orders) })
+      const a = alloc.lines.get(l.id)
+      if (a?.short > 0) rows.push({ s, l, open: a.open, avail: ix.onHand(l.item_id, s.location_id), allocated: a.allocated, short: a.short, eta: etaFor(l.item_id, a.short, db, ix, todayLima(), orders) })
     }
   }
+  rows.sort((a, b) => (a.s.requested_date || '').localeCompare(b.s.requested_date || ''))
   return (
-    <Card title="Backordered sales-order lines">
-      {rows.length === 0 ? <Empty>Everything on open orders is in stock at its shipping location.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Item</th><th className="num">Open</th><th className="num">On hand at ship location</th><th className="num">Backordered</th><th>Requested</th><th>Est. available</th></tr></thead><tbody>
-        {rows.map((r, k) => <tr key={k}><td>{r.s.id}</td><td>{ix.customers.get(r.s.customer_id)?.name}</td><td>{ix.items.get(r.l.item_id)?.name}</td><td className="num">{r.open}</td><td className="num">{qtyFmt(r.avail)}</td>
+    <Card title="Backordered sales-order lines" actions={<span className="muted small">Stock is allocated to open orders by earliest requested date</span>}>
+      {rows.length === 0 ? <Empty>Everything on open orders is in stock at its shipping location.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Item</th><th className="num">Open</th><th className="num">On hand at ship location</th><th className="num" title="Reserved for this order after earlier orders took their share">Allocated</th><th className="num">Backordered</th><th>Requested</th><th>Est. available</th></tr></thead><tbody>
+        {rows.map((r, k) => <tr key={k}><td>{r.s.id}</td><td>{ix.customers.get(r.s.customer_id)?.name}</td><td>{ix.items.get(r.l.item_id)?.name}</td><td className="num">{r.open}</td><td className="num">{qtyFmt(r.avail)}</td><td className="num">{qtyFmt(r.allocated)}</td>
           <td className="num neg">{qtyFmt(r.short)}</td><td className="nowrap">{dfmt(r.s.requested_date)}</td><td><b className={r.eta.date > r.s.requested_date ? 'neg' : ''}>{dfmt(r.eta.date)}</b><div className="small muted">{r.eta.basis}</div></td></tr>)}
       </tbody></table></div>}
     </Card>
