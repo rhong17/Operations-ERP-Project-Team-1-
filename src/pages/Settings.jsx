@@ -31,7 +31,7 @@ export default function Settings() {
           {db.profiles.map(u => <tr key={u.id}><td>{u.full_name}<div className="small muted">{u.email}</div></td><td><Badge tone={u.role === 'staff' ? 'brand' : 'grey'}>{u.role}</Badge></td>
             <td>{u.role === 'customer' ? <select value={u.customer_id || ''} onChange={e => call('set_user_role', { p_user: u.id, p_role: 'customer', p_customer: e.target.value }, { success: 'Customer link updated', showRipple: false })}>
               {db.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> : '—'}</td>
-            <td>{dt(u.created_at)}</td>
+            <td className="nowrap">{dt(u.created_at)}</td>
             <td>{u.id !== profile.id && <Btn small onClick={() => call('set_user_role', { p_user: u.id, p_role: u.role === 'staff' ? 'customer' : 'staff' }, { success: 'Role changed', showRipple: false })}>{u.role === 'staff' ? 'Make customer' : 'Make staff'}</Btn>}</td></tr>)}
         </tbody></table>
         <div className="row gap wrap" style={{ marginTop: 12 }}>

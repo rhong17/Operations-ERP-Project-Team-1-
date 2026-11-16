@@ -31,7 +31,7 @@ export default function SalesOrders() {
                 <tr key={s.id} className="click" onClick={() => setOpenId(s.id)}>
                   <td><b>{s.id}</b>{s.channel === 'portal' && <> <Badge tone="brand">portal</Badge></>}</td>
                   <td>{ix.customers.get(s.customer_id)?.name}</td><td>{ix.locations.get(s.location_id)?.name}</td>
-                  <td>{dt(s.order_date)}</td><td>{dfmt(s.requested_date)}</td><td className="num">{money(total(s))}</td>
+                  <td className="nowrap">{dt(s.order_date)}</td><td className="nowrap">{dfmt(s.requested_date)}</td><td className="num">{money(total(s))}</td>
                   <td><StatusBadge status={s.status} /> {b > 0 && <Badge tone="red">{b} short</Badge>}</td><td>›</td>
                 </tr>)
             })}</tbody></table></div>)}

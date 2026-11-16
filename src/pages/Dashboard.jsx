@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Stat, Bars, StatusBadge } from '../components/ui.jsx'
-import { inventoryPolicy, salesLinesInRange, salesByPeriod, money, num, pct, todayLima, addDays, dshort, dt, sum, runMRP } from '../lib/calc.js'
+import { Page, Card, Stat, Bars, Badge } from '../components/ui.jsx'
+import { inventoryPolicy, salesLinesInRange, salesByPeriod, money, num, pct, todayLima, addDays, dshort, dfmt, sum, runMRP } from '../lib/calc.js'
 
+// Four key numbers, one chart, one to-do list. Detail lives on each module's page.
 export default function Dashboard() {
   const { db, ix } = useData()
   const nav = useNavigate()
@@ -11,81 +12,61 @@ export default function Dashboard() {
   const k = useMemo(() => {
     const todayRows = salesLinesInRange(db, ix, today, today)
     const mtd = salesLinesInRange(db, ix, today.slice(0, 8) + '01', today)
-    const last12w = salesByPeriod(salesLinesInRange(db, ix, addDays(today, -83), today), 'week')
+    const mtdRev = sum(mtd, r => r.revenue)
     const policy = inventoryPolicy(db, ix, today)
-    const invValue = sum(db.stock, s => s.qty * (ix.items.get(s.item_id)?.avg_cost || 0))
     const mrp = runMRP(db, ix, { today, weeks: 4 })
-    const weekEnd = addDays(today, 7)
+    const openSO = db.sales.filter(s => s.kind === 'SO' && s.status === 'placed')
+    const below = policy.filter(p => p.belowRop).sort((a, b) => (a.orderBy || '').localeCompare(b.orderBy || ''))
+    const inbound = db.purchase_orders.filter(p => ['sent', 'partial'].includes(p.status))
+    // one prioritised to-do list across modules
+    const todo = [
+      ...mrp.suggestions.filter(s => s.late).map(s => ({ key: 'm' + s.item.id + s.week, tone: 'red', tag: 'MRP · past due', text: `${s.action === 'Work order' ? 'Make' : 'Buy'} ${num(s.qty, 1)} ${s.item.name}`, when: 'order now', to: '/mrp' })),
+      ...inbound.filter(p => p.expected_date < today).map(p => ({ key: p.id, tone: 'amber', tag: 'Late PO', text: `${p.id} · ${ix.suppliers.get(p.supplier_id)?.name}`, when: `due ${dshort(p.expected_date)}`, to: '/purchasing' })),
+      ...openSO.filter(s => s.requested_date <= addDays(today, 7)).map(s => ({ key: s.id, tone: 'blue', tag: 'Ship soon', text: `${s.id} · ${ix.customers.get(s.customer_id)?.name}`, when: dshort(s.requested_date), to: '/sales' })),
+      ...below.slice(0, 5).map(p => ({ key: 'r' + p.item.id, tone: 'amber', tag: 'Reorder', text: p.item.name, when: p.orderBy <= today ? 'today' : dshort(p.orderBy), to: '/purchasing?tab=replenish' })),
+    ]
     return {
-      todayRev: sum(todayRows, r => r.revenue), todayOrders: new Set(todayRows.map(r => r.sale.id)).size,
-      mtdRev: sum(mtd, r => r.revenue), mtdMargin: sum(mtd, r => r.revenue) ? 1 - sum(mtd, r => r.cost) / sum(mtd, r => r.revenue) : null,
-      invValue, below: policy.filter(p => p.belowRop),
-      openSO: db.sales.filter(s => s.kind === 'SO' && s.status === 'placed'),
-      inbound: db.purchase_orders.filter(p => ['sent', 'partial'].includes(p.status) && p.expected_date <= weekEnd),
-      wip: db.work_orders.filter(w => w.status === 'in_progress'),
-      planned: db.work_orders.filter(w => w.status === 'planned'),
-      lateMrp: mrp.suggestions.filter(s => s.late).length, mrpCount: mrp.suggestions.length,
-      weeks: last12w,
-      recent: [...db.inv_moves].sort((a, b) => b.id - a.id).slice(0, 8),
+      todayRev: sum(todayRows, r => r.revenue), mtdRev,
+      mtdMargin: mtdRev ? 1 - sum(mtd, r => r.cost) / mtdRev : null,
+      invValue: sum(db.stock, s => s.qty * (ix.items.get(s.item_id)?.avg_cost || 0)),
+      openSO, unitsToShip: sum(openSO.flatMap(s => ix.linesBySale.get(s.id) || []), l => l.qty - l.qty_shipped),
+      below, weeks: salesByPeriod(salesLinesInRange(db, ix, addDays(today, -83), today), 'week'), todo,
     }
   }, [db, ix, today])
 
   return (
-    <Page title="Dashboard" subtitle={`Textiles Move · ${dshort(today)} (Lima) · every number below is computed live from the database`}
+    <Page title="Dashboard" subtitle={dfmt(today) + ' · Lima'}
       how={<>
-        <p><b>An ERP is one shared database that every department works in.</b> When the store sells a T-shirt, the same transaction lowers stock at that location, records revenue and cost of goods sold in the accounting journal, raises tomorrow's reorder suggestions and changes what MRP tells purchasing to buy — for everyone, at once.</p>
-        <p>Click any module below to see its part of the flow. After every transaction a panel in the bottom-right corner shows exactly which records changed.</p>
+        <p><b>An ERP is one shared database that every department works in.</b> When the store sells a T-shirt, the same transaction lowers stock at that location, records revenue and cost of goods sold, changes reorder suggestions and what MRP tells purchasing to buy — for every user at once. Every number here is computed live from that data.</p>
+        <p>How the modules connect: <Link to="/purchasing">Purchasing</Link> (receipts raise stock and accounts payable) → <Link to="/inventory">Inventory</Link> (stock by location) → <Link to="/production">Production</Link> (work orders consume BOM components) → <Link to="/pos">Sales</Link> (stock down, revenue + COGS) → <Link to="/returns">Returns</Link> (reverse them) → <Link to="/mrp">MRP</Link> (what to buy/make, when) → <Link to="/finance">Financials</Link> (P&amp;L, valuation, turnover).</p>
+        <p>After every transaction, a panel in the bottom-right corner shows exactly which records changed.</p>
       </>}>
       <div className="stats">
-        <Stat label="Sales today (net of IGV)" value={money(k.todayRev)} soles={k.todayRev} sub={`${k.todayOrders} orders`} onClick={() => nav('/reports')} />
-        <Stat label="Sales this month" value={money(k.mtdRev)} soles={k.mtdRev} sub={`Gross margin ${pct(k.mtdMargin)}`} onClick={() => nav('/finance')} />
-        <Stat label="Inventory value (weighted avg cost)" value={money(k.invValue)} soles={k.invValue} onClick={() => nav('/finance')} />
-        <Stat label="Items at / below reorder point" value={k.below.length} tone={k.below.length ? 'warn' : 'good'} sub="Purchasing → Replenishment" onClick={() => nav('/purchasing?tab=replenish')} />
-        <Stat label="Open sales orders" value={k.openSO.length} sub={`${num(sum(k.openSO.flatMap(s => ix.linesBySale.get(s.id) || []), l => l.qty - l.qty_shipped))} units to ship`} onClick={() => nav('/sales')} />
-        <Stat label="MRP planned orders (4 wks)" value={k.mrpCount} tone={k.lateMrp ? 'bad' : ''} sub={k.lateMrp ? `${k.lateMrp} past their order-by date` : 'all on time'} onClick={() => nav('/mrp')} />
-        <Stat label="POs arriving ≤ 7 days" value={k.inbound.length} onClick={() => nav('/purchasing')} />
-        <Stat label="Work orders" value={`${k.wip.length} in progress`} sub={`${k.planned.length} planned`} onClick={() => nav('/production')} />
+        <Stat label="Sales this month" value={money(k.mtdRev)} soles={k.mtdRev}
+          sub={k.mtdRev ? `${pct(k.mtdMargin)} gross margin · today ${money(k.todayRev)}` : 'No sales recorded yet this month'} onClick={() => nav('/finance')} />
+        <Stat label="Inventory value" value={money(k.invValue)} soles={k.invValue} sub="weighted average cost" onClick={() => nav('/finance')} />
+        <Stat label="Orders to ship" value={k.openSO.length} sub={`${num(k.unitsToShip)} units`} onClick={() => nav('/sales')} />
+        <Stat label="Items to reorder" value={k.below.length} tone={k.below.length ? 'warn' : ''} sub="at or below reorder point" onClick={() => nav('/purchasing?tab=replenish')} />
       </div>
 
-      <Card title="How the modules connect">
-        <div className="flow">
-          {[
-            ['/purchasing', '1 · Purchasing', 'POs to suppliers → receipts raise stock & accounts payable'],
-            ['/inventory', '2 · Inventory', 'On hand by item × location, transfers, cycle counts'],
-            ['/production', '3 · Production', 'Work orders consume components (BOM) and create finished goods'],
-            ['/pos', '4 · Sales', 'POS & sales orders reduce stock, record revenue + COGS'],
-            ['/returns', '5 · Returns', 'Reverse revenue & cost; defects go to Quality Hold'],
-            ['/mrp', '6 · MRP', 'Open orders × BOM − stock − open POs = what to buy/make and when'],
-            ['/finance', '7 · Financials', 'P&L, inventory valuation, turnover from the journal'],
-          ].map(([to, t, s]) => <Link key={to} to={to} className="flow-node"><strong>{t}</strong><span>{s}</span></Link>)}
-        </div>
-      </Card>
-
-      <div className="grid g2">
-        <Card title="Weekly sales — last 12 weeks">
-          <Bars rows={k.weeks.map(w => ({ label: dshort(w.period), value: w.revenue }))} format={money} />
-          {!k.weeks.length && <p className="muted">No sales in the last 12 weeks yet.</p>}
+      <div className="grid dash">
+        <Card title="Weekly sales" actions={<Link className="btn small ghost" to="/reports">Reports →</Link>}>
+          {k.weeks.length ? <Bars rows={k.weeks.map(w => ({ label: dshort(w.period), value: w.revenue }))} format={money} height={200} />
+            : <p className="muted">No sales in the last 12 weeks yet.</p>}
+          <p className="muted small" style={{ margin: '8px 0 0' }}>Net sales before IGV, last 12 weeks</p>
         </Card>
         <Card title="Needs attention">
-          <table className="tbl compact"><tbody>
-            {k.below.slice(0, 6).map(p => (
-              <tr key={p.item.id} className="click" onClick={() => nav('/purchasing?tab=replenish')}>
-                <td>{p.item.name}</td><td className="num">pos. {num(p.position, 1)} ≤ ROP {num(p.rop, 1)}</td><td><span className="badge amber">Reorder</span></td>
-              </tr>))}
-            {k.openSO.slice(0, 4).map(s => (
-              <tr key={s.id} className="click" onClick={() => nav('/sales')}>
-                <td>{s.id} · {ix.customers.get(s.customer_id)?.name}</td><td className="num">due {dshort(s.requested_date)}</td><td><StatusBadge status={s.status} /></td>
-              </tr>))}
-          </tbody></table>
+          {k.todo.length === 0 ? <p className="muted">All clear.</p> : (
+            <ul className="todo">
+              {k.todo.slice(0, 9).map(t => (
+                <li key={t.key} onClick={() => nav(t.to)}>
+                  <Badge tone={t.tone}>{t.tag}</Badge>
+                  <span className="todo-text">{t.text}</span>
+                  <span className="muted small">{t.when}</span>
+                </li>))}
+            </ul>)}
         </Card>
       </div>
-
-      <Card title="Latest stock movements (all users)">
-        <table className="tbl compact"><thead><tr><th>When</th><th>Type</th><th>Item</th><th>Location</th><th className="num">Qty</th><th>Document</th></tr></thead><tbody>
-          {k.recent.map(m => <tr key={m.id}><td>{dt(m.at)}</td><td>{m.kind}</td><td>{ix.items.get(m.item_id)?.name}</td><td>{ix.locations.get(m.location_id)?.name}</td>
-            <td className={'num ' + (m.qty < 0 ? 'neg' : 'pos')}>{m.qty > 0 ? '+' : ''}{num(m.qty, 2)}</td><td>{m.doc_id}</td></tr>)}
-        </tbody></table>
-      </Card>
     </Page>
   )
 }

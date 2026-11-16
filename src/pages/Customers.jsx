@@ -19,7 +19,7 @@ export default function Customers() {
         <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Customer</th><th>Channel</th><th>Contact</th><th>Price list</th><th className="num">Orders</th><th className="num">Net sales</th><th>Last order</th><th></th></tr></thead><tbody>
           {db.customers.map(c => { const s = stats(c); return <tr key={c.id}><td><b>{c.name}</b><div className="small muted">{c.id} · {c.type} · {c.city}</div></td><td>{c.channel}</td>
             <td className="small">{c.email}<br />{c.phone}</td><td>{c.price_list} {c.igv_exempt && <Badge tone="blue">IGV exempt</Badge>}</td>
-            <td className="num">{s.n}</td><td className="num">{money(s.rev)}</td><td>{dt(s.last)}</td><td><button className="btn small" onClick={() => setEdit(c)}>Edit</button></td></tr> })}
+            <td className="num">{s.n}</td><td className="num">{money(s.rev)}</td><td className="nowrap">{dt(s.last)}</td><td><button className="btn small" onClick={() => setEdit(c)}>Edit</button></td></tr> })}
         </tbody></table></div>
       </Card>
       {edit && <Modal title={edit.id ? `Edit ${edit.name}` : 'New customer'} onClose={() => setEdit(null)} footer={<><button className="btn" onClick={() => setEdit(null)}>Cancel</button>

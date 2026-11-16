@@ -62,12 +62,12 @@ export default function App() {
 }
 
 const STAFF_NAV = [
-  ['Overview', [['/', 'Dashboard', '◎']]],
-  ['Sell', [['/pos', 'Point of Sale', '🛒'], ['/sales', 'Sales Orders', '📄', 'openSO'], ['/returns', 'Returns & Exchanges', '↩'], ['/portal-preview', 'Customer Portal (preview)', '🛍']]],
-  ['Make & Stock', [['/inventory', 'Inventory', '📦'], ['/production', 'Production Orders', '🧵', 'openWO'], ['/mrp', 'MRP', '🗓']]],
-  ['Buy', [['/purchasing', 'Purchasing & Suppliers', '🚚', 'openPO']]],
-  ['Analyze', [['/finance', 'Financials', '💰'], ['/reports', 'Reports', '📊'], ['/journal', 'Accounting Journal', '📒']]],
-  ['Master data', [['/items', 'Items & BOMs', '🏷'], ['/customers', 'Customers', '👥'], ['/settings', 'Settings & Users', '⚙'], ['/about', 'About this system', 'ℹ']]],
+  ['Overview', [['/', 'Dashboard']]],
+  ['Sell', [['/pos', 'Point of Sale'], ['/sales', 'Sales Orders', 'openSO'], ['/returns', 'Returns & Exchanges'], ['/portal-preview', 'Customer Portal']]],
+  ['Make & Stock', [['/inventory', 'Inventory'], ['/production', 'Production Orders', 'openWO'], ['/mrp', 'MRP']]],
+  ['Buy', [['/purchasing', 'Purchasing & Suppliers', 'openPO']]],
+  ['Analyze', [['/finance', 'Financials'], ['/reports', 'Reports'], ['/journal', 'Accounting Journal']]],
+  ['Master data', [['/items', 'Items & BOMs'], ['/customers', 'Customers'], ['/settings', 'Settings & Users'], ['/about', 'About this system']]],
 ]
 
 function Shell({ profile }) {
@@ -92,14 +92,14 @@ function Shell({ profile }) {
         {isStaff ? STAFF_NAV.map(([g, links]) => (
           <div key={g}>
             <div className="nav-group">{g}</div>
-            {links.map(([to, label, icon, c]) => (
-              <NavLink key={to} to={to} end={to === '/'}><span>{icon}</span>{label}{c && counts[c] ? <span className="num-tag">{counts[c]}</span> : null}</NavLink>
+            {links.map(([to, label, c]) => (
+              <NavLink key={to} to={to} end={to === '/'}>{label}{c && counts[c] ? <span className="num-tag">{counts[c]}</span> : null}</NavLink>
             ))}
           </div>
         )) : <>
           <div className="nav-group">Customer portal</div>
-          <NavLink to="/" end>🛍 Shop & pickup</NavLink>
-          <NavLink to="/orders">📄 My orders</NavLink>
+          <NavLink to="/" end>Shop & pickup</NavLink>
+          <NavLink to="/orders">My orders</NavLink>
         </>}
       </aside>
       <div className="main">
