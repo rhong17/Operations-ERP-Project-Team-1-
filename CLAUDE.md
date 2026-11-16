@@ -19,6 +19,19 @@ stored data** — never hard-code a total, rate or metric in the UI.
 - `src/pages/*.jsx` — one file per module. `src/components/ui.jsx` — shared UI (Page, Card, Modal, ItemSearch, Barcode…).
 - Hosting: GitHub Pages via `.github/workflows/deploy.yml` on push to `main`. Database/auth: Supabase.
 
+## Git workflow (required — several teammates work at the same time)
+- **Never commit or push directly to `main`.** `main` is protected and auto-deploys the live site.
+- Start every task from the latest main: `git checkout main && git pull`, then create a branch
+  named `<yourname>/<short-change>` (e.g. `alex/returns-chart`).
+- Commit on that branch, push the branch, and open a **pull request** into `main`
+  (with `gh pr create` if the GitHub CLI is installed, otherwise give the human the
+  "Create pull request" link GitHub prints after the push).
+- Keep each pull request to one feature. If GitHub reports conflicts, merge the latest `main` into the
+  branch, resolve them keeping both teammates' changes, re-run `npm run build` and `npm run test:calc`, push again.
+- Shared files (`src/lib/calc.js`, `src/components/ui.jsx`, `supabase/02_logic.sql`) are edited by
+  several people — change only what the task needs there, and tell the human to mention it to the team.
+- Merging is done by a human on GitHub after the checks pass; don't merge on your own unless asked.
+
 ## Rules
 1. **Writes go through SQL functions only.** The browser never inserts/updates tables directly. A new kind of
    transaction = a new function in `02_logic.sql` that (a) checks `_require_staff()`, (b) changes stock only via

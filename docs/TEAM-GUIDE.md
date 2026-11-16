@@ -25,6 +25,9 @@ a change into `main`, and merging the PR publishes the site automatically.
 
 ## Every change
 
+`main` is **protected**: GitHub refuses direct pushes to it, so every change goes through a pull request whose
+automatic checks (build + MRP math) must pass. Your AI assistant already knows this from `CLAUDE.md` / `AGENTS.md`.
+
 1. **Get the latest:** `git checkout main && git pull` (GitHub Desktop: *Fetch origin → Pull*).
 2. **Make a branch** named after the change: `git checkout -b alex/returns-chart`.
 3. **Ask your AI tool for the change**, e.g. *"In src/pages/Returns.jsx add a bar chart of returns by reason code."*
