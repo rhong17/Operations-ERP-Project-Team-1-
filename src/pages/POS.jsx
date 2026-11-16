@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode, useUsd } from '../components/ui.jsx'
 import { money, qtyFmt, round, setting, dt } from '../lib/calc.js'
 
 // Price before IGV for a customer's price list (mirrors _price() in the database)
@@ -11,6 +11,7 @@ export function netPrice(item, customer, igv) {
 
 export default function POS() {
   const { db, ix, call, toast } = useData()
+  const usd = useUsd()
   const igv = setting(db, 'igv_rate', 0.18)
   const [loc, setLoc] = useState('LOC04')
   const [cust, setCust] = useState('CUS01')
@@ -71,7 +72,7 @@ export default function POS() {
               <div className="tbl-wrap"><table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand here</th><th className="num">Qty</th><th className="num">Price (pre-IGV)</th><th className="num">Disc %</th><th className="num">Net</th><th></th></tr></thead>
                 <tbody>{lines.map((l, i) => (
                   <tr key={l.item.id}>
-                    <td>{l.item.name}<div className="muted small">{l.item.ean}</div></td>
+                    <td>{l.item.name}<div className="muted small">{l.item.name_es} · {l.item.ean}</div></td>
                     <td className={'num ' + (l.qty > l.avail ? 'neg' : '')}>{qtyFmt(l.avail, l.item.uom)}</td>
                     <td className="num"><input type="number" min="1" value={l.qty} onChange={e => upd(i, { qty: Math.max(1, Number(e.target.value) || 1) })} /></td>
                     <td className="num">{money(l.price)}</td>
@@ -89,6 +90,7 @@ export default function POS() {
             <div><span>Net sale</span><span>{money(t.net)}</span></div>
             <div><span>IGV {rate ? '18%' : '(exempt)'}</span><span>{money(t.tax)}</span></div>
             <div className="grand"><span>Total</span><span>{money(t.total)}</span></div>
+            {t.total > 0 && <div className="usd" style={{ justifyContent: 'flex-end' }}>{usd(t.total)}</div>}
           </div>
           {short.length > 0 && <p className="error-text small">Not enough stock here for: {short.map(l => l.item.name).join(', ')}. Transfer stock first or use a sales order (backorder).</p>}
           <div style={{ marginTop: 12 }}><Btn kind="primary" onClick={checkout} disabled={!lines.length || short.length > 0} busyText="Posting sale…">Complete sale</Btn></div>
@@ -105,20 +107,20 @@ function Receipt({ r, onClose }) {
       <div className="receipt">
         <div className="c"><b>TEXTILES MOVE</b><br />{r.loc?.name}<br />{r.loc?.address}, {r.loc?.district}<br />{dt(r.at)}</div>
         <hr />
-        <div>Ticket: {r.id}<br />Cliente: {r.customer?.name}</div>
+        <div>Receipt: {r.id}<br />Customer: {r.customer?.name}</div>
         <hr />
         <table><tbody>{r.lines.map(l => (
           <tr key={l.item.id}><td>{l.qty} × {l.item.name}{l.disc ? ` (−${l.disc}%)` : ''}</td><td style={{ textAlign: 'right' }}>{money(l.net)}</td></tr>))}
         </tbody></table>
         <hr />
         <table><tbody>
-          <tr><td>Op. gravada (net)</td><td style={{ textAlign: 'right' }}>{money(r.subtotal)}</td></tr>
-          {r.discount > 0 && <tr><td>Descuentos</td><td style={{ textAlign: 'right' }}>−{money(r.discount)}</td></tr>}
-          <tr><td>IGV {r.rate ? '18%' : 'exonerado'}</td><td style={{ textAlign: 'right' }}>{money(r.tax)}</td></tr>
+          <tr><td>Subtotal (before IGV)</td><td style={{ textAlign: 'right' }}>{money(r.subtotal)}</td></tr>
+          {r.discount > 0 && <tr><td>Discounts</td><td style={{ textAlign: 'right' }}>−{money(r.discount)}</td></tr>}
+          <tr><td>IGV sales tax {r.rate ? '18%' : '(exempt)'}</td><td style={{ textAlign: 'right' }}>{money(r.tax)}</td></tr>
           <tr><td><b>TOTAL</b></td><td style={{ textAlign: 'right' }}><b>{money(r.total)}</b></td></tr>
         </tbody></table>
         <hr />
-        <div className="c"><Barcode value={r.id} height={36} width={1.4} /><br />¡Gracias por su compra!<br />Cambios con este ticket dentro de 30 días.</div>
+        <div className="c"><Barcode value={r.id} height={36} width={1.4} /><br />Thank you for your purchase!<br />Returns and exchanges within 30 days with this receipt.</div>
       </div>
     </Modal>
   )

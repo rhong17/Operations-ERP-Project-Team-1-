@@ -39,7 +39,7 @@ export default function Portal({ tab = 'shop', preview }) {
   )
 
   return (
-    <Page title={preview ? 'Customer portal (staff preview)' : `Hola${me ? ', ' + me.name.split(' ')[0] : ''} 👋`} subtitle="See what's in stock at our Gamarra store and warehouse, and order for pickup"
+    <Page title={preview ? 'Customer portal (staff preview)' : `Hi${me ? ', ' + me.name.split(' ')[0] : ''} 👋`} subtitle="See what's in stock at our Gamarra store and warehouse, and order for pickup"
       how={preview ? <p>This is what a customer sees after signing up without a team code. Live stock comes from the same database as the ERP; placing an order creates a sales order (status Order Placed) that staff fulfil. Staff logins can't place portal orders.</p> : null}>
       <div className="pos-grid">
         <div>
@@ -47,7 +47,7 @@ export default function Portal({ tab = 'shop', preview }) {
           <div className="shop">{products.map(i => (
             <div className="product" key={i.id}>
               <div><span className="swatch" style={{ background: SWATCH[i.color] || '#ccc' }} /><b>{i.name}</b></div>
-              <div className="muted small">{i.gender} · talla {i.size} · {i.color}</div>
+              <div className="es">{i.name_es}</div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{money(me?.price_list === 'wholesale' && i.wholesale_price ? i.wholesale_price * (1 + (me?.igv_exempt ? 0 : igv)) : i.sale_price)}</div>
               <table className="tbl compact"><tbody>{PICKUP.map(l => { const n = ix.onHand(i.id, l); return <tr key={l}><td>{ix.locations.get(l)?.name}</td><td className="num">{n > 0 ? <Badge tone={n > 10 ? 'green' : 'amber'}>{n} available</Badge> : <Badge tone="red">out of stock</Badge>}</td></tr> })}</tbody></table>
               <div className="row gap"><button className="btn small" onClick={() => setCart(c => ({ ...c, [i.id]: Math.max(0, (c[i.id] || 0) - 1) }))}>−</button><b>{cart[i.id] || 0}</b><button className="btn small" onClick={() => setCart(c => ({ ...c, [i.id]: (c[i.id] || 0) + 1 }))}>+</button></div>

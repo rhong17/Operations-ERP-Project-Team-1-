@@ -40,13 +40,26 @@ export const Card = ({ title, actions, children, className = '' }) => (
   </section>
 )
 
-export const Stat = ({ label, value, sub, tone, onClick }) => (
+// "≈ US$ 1,234" for a soles amount, using the exchange rate stored in Settings (usd_rate)
+export function useUsd() {
+  const { db } = useData()
+  const rate = Number(db?.settings?.find(s => s.key === 'usd_rate')?.value) || 0
+  return n => (rate && n != null && !Number.isNaN(Number(n)))
+    ? '≈ US$ ' + (Number(n) / rate).toLocaleString('en-US', { maximumFractionDigits: Math.abs(n / rate) < 100 ? 2 : 0 })
+    : ''
+}
+
+export const Stat = ({ label, value, sub, tone, onClick, soles }) => {
+  const usd = useUsd()
+  return (
   <div className={'stat ' + (tone || '') + (onClick ? ' clickable' : '')} onClick={onClick}>
     <div className="stat-label">{label}</div>
     <div className="stat-value">{value}</div>
+    {soles != null && usd(soles) && <div className="usd">{usd(soles)}</div>}
     {sub && <div className="stat-sub">{sub}</div>}
   </div>
-)
+  )
+}
 
 export const Badge = ({ tone = 'grey', children, title }) => <span className={'badge ' + tone} title={title}>{children}</span>
 
@@ -125,7 +138,7 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
   const list = useMemo(() => db.items.filter(i => i.active && (!filter || filter(i))), [db.items, filter])
   const matches = useMemo(() => {
     const s = q.trim().toLowerCase(); if (!s) return []
-    return list.filter(i => i.ean === s || i.name.toLowerCase().includes(s) || (i.sku || '').toLowerCase().includes(s) || i.id.toLowerCase() === s).slice(0, 8)
+    return list.filter(i => i.ean === s || i.name.toLowerCase().includes(s) || (i.name_es || '').toLowerCase().includes(s) || (i.sku || '').toLowerCase().includes(s) || i.id.toLowerCase() === s).slice(0, 8)
   }, [q, list])
   const pickCode = code => {
     const c = String(code).trim()
@@ -146,7 +159,7 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
         <div className="dropdown">
           {matches.map(i => (
             <button type="button" key={i.id} onClick={() => { onPick(i); setQ(''); ref.current?.focus() }}>
-              <span>{i.name}</span>
+              <span>{i.name}<span className="es">{i.name_es}</span></span>
               <span className="muted small">{i.ean}{stockAt ? ` · ${qtyFmt(ix.onHand(i.id, stockAt), i.uom)} here` : ''}</span>
             </button>
           ))}

@@ -37,9 +37,9 @@ export default function Dashboard() {
         <p>Click any module below to see its part of the flow. After every transaction a panel in the bottom-right corner shows exactly which records changed.</p>
       </>}>
       <div className="stats">
-        <Stat label="Sales today (net of IGV)" value={money(k.todayRev)} sub={`${k.todayOrders} orders`} onClick={() => nav('/reports')} />
-        <Stat label="Sales this month" value={money(k.mtdRev)} sub={`Gross margin ${pct(k.mtdMargin)}`} onClick={() => nav('/finance')} />
-        <Stat label="Inventory value (weighted avg cost)" value={money(k.invValue)} onClick={() => nav('/finance')} />
+        <Stat label="Sales today (net of IGV)" value={money(k.todayRev)} soles={k.todayRev} sub={`${k.todayOrders} orders`} onClick={() => nav('/reports')} />
+        <Stat label="Sales this month" value={money(k.mtdRev)} soles={k.mtdRev} sub={`Gross margin ${pct(k.mtdMargin)}`} onClick={() => nav('/finance')} />
+        <Stat label="Inventory value (weighted avg cost)" value={money(k.invValue)} soles={k.invValue} onClick={() => nav('/finance')} />
         <Stat label="Items at / below reorder point" value={k.below.length} tone={k.below.length ? 'warn' : 'good'} sub="Purchasing → Replenishment" onClick={() => nav('/purchasing?tab=replenish')} />
         <Stat label="Open sales orders" value={k.openSO.length} sub={`${num(sum(k.openSO.flatMap(s => ix.linesBySale.get(s.id) || []), l => l.qty - l.qty_shipped))} units to ship`} onClick={() => nav('/sales')} />
         <Stat label="MRP planned orders (4 wks)" value={k.mrpCount} tone={k.lateMrp ? 'bad' : ''} sub={k.lateMrp ? `${k.lateMrp} past their order-by date` : 'all on time'} onClick={() => nav('/mrp')} />

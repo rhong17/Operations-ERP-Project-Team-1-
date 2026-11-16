@@ -39,7 +39,7 @@ function OnHand() {
   const [type, setType] = useState('')
   const policy = useMemo(() => new Map(inventoryPolicy(db, ix).map(p => [p.item.id, p])), [db, ix])
   const locs = [...db.locations].sort((a, b) => a.sort - b.sort)
-  const items = db.items.filter(i => i.active && (!type || i.item_type === type) && (!q || (i.name + i.ean + i.id).toLowerCase().includes(q.toLowerCase())))
+  const items = db.items.filter(i => i.active && (!type || i.item_type === type) && (!q || (i.name + (i.name_es || '') + i.ean + i.id).toLowerCase().includes(q.toLowerCase())))
   const total = items.reduce((a, i) => a + ix.onHand(i.id) * i.avg_cost, 0)
   return (
     <Card title="Stock by item and location" actions={<span className="muted">Value shown: {money(total)}</span>}>
@@ -47,11 +47,11 @@ function OnHand() {
         <input style={{ maxWidth: 280 }} placeholder="Filter by name, barcode, ID" value={q} onChange={e => setQ(e.target.value)} />
         <select style={{ maxWidth: 200 }} value={type} onChange={e => setType(e.target.value)}><option value="">All types</option><option>Finished Good</option><option>Kit</option><option>Component</option></select>
       </div>
-      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Barcode</th>{locs.map(l => <th key={l.id} className="num" title={l.name}>{l.id}<div className="small muted">{l.name.split(' ').slice(0, 3).join(' ')}</div></th>)}<th className="num">Usable total</th><th className="num">ROP</th><th className="num">Avg cost</th><th className="num">Value</th></tr></thead>
+      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th style={{ minWidth: 260 }}>Item</th><th>Barcode</th>{locs.map(l => <th key={l.id} className="num" title={l.name}>{l.id}<div className="small muted">{l.name.split(' ').slice(0, 3).join(' ')}</div></th>)}<th className="num">Usable total</th><th className="num">ROP</th><th className="num">Avg cost</th><th className="num">Value</th></tr></thead>
         <tbody>{items.map(i => {
           const p = policy.get(i.id), tot = ix.onHand(i.id)
           return <tr key={i.id}>
-            <td>{i.name}<div className="small muted">{i.id} · {i.item_type}</div></td><td className="small">{i.ean}</td>
+            <td>{i.name}<span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.item_type}</div></td><td className="small">{i.ean}</td>
             {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? qtyFmt(v) : <span className="muted">·</span>}</td> })}
             <td className="num"><b>{qtyFmt(tot, i.uom)}</b> {p?.belowRop && <Badge tone="amber">≤ ROP</Badge>}</td>
             <td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{money(tot * i.avg_cost)}</td>
@@ -213,6 +213,6 @@ function Labels() {
           <td>{sel.has(i.id) && <input type="number" min="1" max="50" style={{ width: 70 }} value={sel.get(i.id)} onChange={e => setSel(new Map(sel).set(i.id, Math.max(1, Number(e.target.value) || 1)))} />}</td></tr>))}</tbody></table></div>
     </Card>
     <div className="labels">{labels.map((i, k) => (
-      <div className="label" key={k}><div className="lname">{i.name}</div><Barcode value={i.ean} /><div className="lsub">{i.variant_sku || i.sku || i.id}{i.sale_price ? ` · S/ ${Number(i.sale_price).toFixed(2)}` : ''}</div></div>))}</div>
+      <div className="label" key={k}><div className="lname">{i.name}</div><div className="lsub">{i.name_es}</div><Barcode value={i.ean} /><div className="lsub">{i.variant_sku || i.sku || i.id}{i.sale_price ? ` · S/ ${Number(i.sale_price).toFixed(2)}` : ''}</div></div>))}</div>
   </>
 }

@@ -111,7 +111,7 @@ function PODetail({ id, onClose }) {
       {p.status === 'draft' && <><Btn kind="danger" onClick={() => call('cancel_po', { p_id: id }, { success: 'PO cancelled' })}>Cancel</Btn><Btn kind="primary" onClick={() => call('send_po', { p_id: id }, { success: r => `Sent — expected ${dfmt(r.expected_date)}` })}>Mark as sent</Btn></>}
       {p.status === 'sent' && !recs.length && <Btn kind="danger" onClick={() => call('cancel_po', { p_id: id }, { success: 'PO cancelled' })}>Cancel PO</Btn>}
       {['received', 'partial'].includes(p.status) && <Btn onClick={() => call('close_po', { p_id: id }, { success: 'PO closed' })}>Close PO{p.status === 'partial' ? ' (short)' : ''}</Btn>}
-      <a className="btn" href={mailto}>✉ Email to supplier</a>
+      <a className="btn" href={mailto} title="Opens a draft in Spanish, since the suppliers are in Peru">✉ Email to supplier (Spanish)</a>
     </>}>
       <div className="row gap wrap" style={{ marginBottom: 10 }}>
         <StatusBadge status={p.status} /><b>{s?.name}</b><span className="muted">{s?.contact_name} · {s?.phone} · {p.payment_terms}</span>

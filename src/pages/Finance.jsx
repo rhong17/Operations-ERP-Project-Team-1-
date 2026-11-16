@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
 import { supabase } from '../lib/supabase.js'
-import { Page, Card, Stat, DateRange, Tabs } from '../components/ui.jsx'
+import { Page, Card, Stat, DateRange, Tabs, useUsd } from '../components/ui.jsx'
 import { money, pct, num, profitAndLoss, todayLima, addDays, daysBetween, sum, groupBy } from '../lib/calc.js'
 
 const GO_LIVE = '2026-11-01'
 
 export default function Finance() {
   const { db, ix, version } = useData()
+  const usd = useUsd()
   const [from, setFrom] = useState('2026-05-01')
   const [to, setTo] = useState(todayLima())
   const [tab, setTab] = useState('pl')
@@ -53,9 +54,9 @@ export default function Finance() {
       </>}>
       <Card><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b) }} /></Card>
       <div className="stats">
-        <Stat label="Net sales" value={pl ? money(pl.netSales) : '…'} />
-        <Stat label="Gross profit" value={pl ? money(pl.grossProfit) : '…'} sub={pl ? `margin ${pct(pl.grossMargin)}` : ''} tone="good" />
-        <Stat label="Inventory value now" value={money(valuation.total + valuation.wip)} sub={`incl. WIP ${money(valuation.wip)}`} />
+        <Stat label="Net sales" value={pl ? money(pl.netSales) : '…'} soles={pl?.netSales} />
+        <Stat label="Gross profit" value={pl ? money(pl.grossProfit) : '…'} soles={pl?.grossProfit} sub={pl ? `margin ${pct(pl.grossMargin)}` : ''} tone="good" />
+        <Stat label="Inventory value now" value={money(valuation.total + valuation.wip)} soles={valuation.total + valuation.wip} sub={`incl. WIP ${money(valuation.wip)}`} />
         <Stat label="Inventory turnover" value={turns === null ? '…' : `${num(turns, 2)}×`} sub={annual === null ? '' : `${num(annual, 1)}× per year · ${num(365 / annual, 0)} days of inventory`} />
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[['pl', 'Profit & Loss'], ['val', 'Inventory valuation'], ['turn', 'Turnover']]} />
@@ -64,14 +65,14 @@ export default function Finance() {
           <tr><td>Gross sales revenue</td><td className="num">{money(pl.gross)}</td></tr>
           <tr><td>&nbsp;&nbsp;Less sales discounts</td><td className="num neg">−{money(pl.discounts)}</td></tr>
           <tr><td>&nbsp;&nbsp;Less sales returns</td><td className="num neg">−{money(pl.returns)}</td></tr>
-          <tr className="sub"><td>Net sales</td><td className="num">{money(pl.netSales)}</td></tr>
+          <tr className="sub"><td>Net sales</td><td className="num">{money(pl.netSales)}<div className="usd">{usd(pl.netSales)}</div></td></tr>
           <tr><td>Cost of goods sold (weighted average cost)</td><td className="num neg">−{money(pl.cogs)}</td></tr>
-          <tr className="sub"><td>Gross profit <span className="muted">({pct(pl.grossMargin)})</span></td><td className="num">{money(pl.grossProfit)}</td></tr>
+          <tr className="sub"><td>Gross profit <span className="muted">({pct(pl.grossMargin)})</span></td><td className="num">{money(pl.grossProfit)}<div className="usd">{usd(pl.grossProfit)}</div></td></tr>
           <tr><td>Production scrap expense (cost of poor quality)</td><td className="num neg">−{money(pl.scrap)}</td></tr>
           <tr><td>Inventory adjustments (shrinkage / damage / count differences)</td><td className="num neg">{pl.adjustments >= 0 ? '−' : '+'}{money(Math.abs(pl.adjustments))}</td></tr>
-          <tr className="total"><td>Operating profit before overhead</td><td className="num">{money(pl.operating)}</td></tr>
+          <tr className="total"><td>Operating profit before overhead</td><td className="num">{money(pl.operating)}<div className="usd">{usd(pl.operating)}</div></td></tr>
         </tbody></table>
-        <p className="muted small">Overheads (rent, salaries, utilities) are outside this mini-ERP's scope; labour used in production is included in product cost.</p>
+        <p className="muted small">Amounts are in Peruvian soles (S/); ≈ US$ uses the exchange rate in Settings. Overheads (rent, salaries, utilities) are outside this mini-ERP's scope; labour used in production is included in product cost.</p>
       </Card>}
       {tab === 'val' && <Valuation v={valuation} />}
       {tab === 'turn' && <Card title="Inventory turnover calculation">

@@ -645,15 +645,15 @@ begin
   perform _require_staff();
   if coalesce(p->>'name','') = '' or coalesce(p->>'ean','') = '' then raise exception 'Name and barcode are required'; end if;
   if v_id is null then v_id := _next_id('ITM'); end if;
-  insert into items(id, ean, sku, name, item_type, uom, std_cost, avg_cost, labor_cost, sale_price, wholesale_price,
+  insert into items(id, ean, sku, name, name_en, item_type, uom, std_cost, avg_cost, labor_cost, sale_price, wholesale_price,
                     make_or_buy, supplier_id, lead_time_days, lot_rule, lot_qty, active, color, size, gender, style, source)
-  values (v_id, p->>'ean', p->>'sku', p->>'name', coalesce(p->>'item_type','Component'), coalesce(p->>'uom','unit'),
+  values (v_id, p->>'ean', p->>'sku', p->>'name', nullif(p->>'name_en',''), coalesce(p->>'item_type','Component'), coalesce(p->>'uom','unit'),
           coalesce((p->>'std_cost')::numeric,0), coalesce((p->>'std_cost')::numeric,0), coalesce((p->>'labor_cost')::numeric,0),
           nullif(p->>'sale_price','')::numeric, nullif(p->>'wholesale_price','')::numeric,
           coalesce(p->>'make_or_buy','Buy'), nullif(p->>'supplier_id',''), coalesce((p->>'lead_time_days')::int,0),
           coalesce(nullif(p->>'lot_rule',''),'L4L'), nullif(p->>'lot_qty','')::numeric, coalesce((p->>'active')::boolean,true),
           p->>'color', p->>'size', p->>'gender', p->>'style', 'Added in ERP')
-  on conflict (id) do update set ean = excluded.ean, name = excluded.name, sale_price = excluded.sale_price,
+  on conflict (id) do update set ean = excluded.ean, name = excluded.name, name_en = excluded.name_en, sale_price = excluded.sale_price,
     wholesale_price = excluded.wholesale_price, std_cost = excluded.std_cost, labor_cost = excluded.labor_cost,
     supplier_id = excluded.supplier_id, lead_time_days = excluded.lead_time_days, lot_rule = excluded.lot_rule,
     lot_qty = excluded.lot_qty, active = excluded.active;

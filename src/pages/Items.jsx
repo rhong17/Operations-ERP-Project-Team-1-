@@ -10,7 +10,7 @@ export default function Items() {
   const [edit, setEdit] = useState(null)
   const [bom, setBom] = useState(null)
   const policy = useMemo(() => new Map(inventoryPolicy(db, ix).map(p => [p.item.id, p])), [db, ix])
-  const list = db.items.filter(i => (!type || i.item_type === type) && (!q || (i.name + i.ean + i.id + (i.sku || '')).toLowerCase().includes(q.toLowerCase())))
+  const list = db.items.filter(i => (!type || i.item_type === type) && (!q || (i.name + (i.name_es || '') + i.ean + i.id + (i.sku || '')).toLowerCase().includes(q.toLowerCase())))
   return (
     <Page title="Items & Bills of Materials" subtitle={`${db.items.length} items · ${new Set(db.bom.map(b => b.parent_id)).size} parent items with a BOM`}
       how={<>
@@ -25,7 +25,7 @@ export default function Items() {
         </div>
         <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Barcode</th><th>Type</th><th className="num">Std cost</th><th className="num">Avg cost</th><th className="num">Retail (IGV incl.)</th><th className="num">Wholesale</th><th className="num">Lead time</th><th className="num">ROP</th><th className="num">EOQ</th><th>Lot rule</th><th className="num">On hand</th><th></th></tr></thead><tbody>
           {list.map(i => { const p = policy.get(i.id); return <tr key={i.id} className={i.active ? '' : 'dim'}>
-            <td>{i.name}<div className="small muted">{i.id} · {i.variant_sku || i.sku}</div></td><td className="small">{i.ean}</td><td>{i.item_type}</td>
+            <td>{i.name}<span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.variant_sku || i.sku}</div></td><td className="small">{i.ean}</td><td>{i.item_type}</td>
             <td className="num">{money(i.std_cost)}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{i.sale_price ? money(i.sale_price) : '—'}</td><td className="num">{i.wholesale_price ? money(i.wholesale_price) : '—'}</td>
             <td className="num">{i.lead_time_days} d</td><td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{p ? num(p.eoq, 0) : '—'}</td><td>{i.lot_rule}{i.lot_rule === 'FOQ' ? ' ' + i.lot_qty : ''}</td>
             <td className="num">{qtyFmt(ix.onHand(i.id), i.uom)}</td>
@@ -40,13 +40,15 @@ export default function Items() {
 
 function EditItem({ item, onClose }) {
   const { db, call } = useData()
-  const [f, setF] = useState(item)
+  // the form edits the stored names: name = company (Spanish) name, name_en = English display name
+  const [f, setF] = useState(item.id ? { ...item, name: item.name_es, name_en: item.name_en || '' } : item)
   const set = k => e => setF({ ...f, [k]: e.target.value })
   return (
-    <Modal wide title={item.id ? `Edit ${item.name}` : 'New item'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button>
+    <Modal wide title={item.id ? `Edit ${item.name_en || item.name}` : 'New item'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button>
       <Btn kind="primary" onClick={async () => { if (await call('save_item', { p: f }, { success: 'Item saved', showRipple: false })) onClose() }}>Save</Btn></>}>
       <div className="form">
-        <Field label="Name" wide><input value={f.name || ''} onChange={set('name')} /></Field>
+        <Field label="English name (shown in the app)" wide><input value={f.name_en || ''} onChange={set('name_en')} /></Field>
+        <Field label="Company name (original, Spanish)" wide><input value={f.name || ''} onChange={set('name')} /></Field>
         <Field label="Barcode (EAN / internal code)"><input value={f.ean || ''} onChange={set('ean')} /></Field>
         {!item.id && <><Field label="Type"><select value={f.item_type} onChange={set('item_type')}><option>Component</option><option>Finished Good</option><option>Kit</option></select></Field>
           <Field label="Unit of measure"><select value={f.uom} onChange={set('uom')}><option>unit</option><option>kg</option><option>cone</option><option>pack</option></select></Field>

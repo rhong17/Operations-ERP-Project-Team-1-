@@ -33,6 +33,7 @@ create table doc_counters (prefix text primary key, n int not null default 0);
 create table locations (
   id text primary key,
   name text not null,
+  name_en text,                        -- English display name
   type text,
   address text,
   district text,
@@ -61,7 +62,8 @@ create table items (
   ean text not null unique,            -- the barcode value printed on the label
   sku text,                            -- Cód. Interno from the company sheet
   variant_sku text,
-  name text not null,
+  name text not null,                  -- company's original (Spanish) product name
+  name_en text,                        -- English display name shown in the app
   item_type text not null check (item_type in ('Finished Good','Kit','Component')),
   style text,
   gender text,
