@@ -92,6 +92,36 @@ export function committed(db, ix) {
   return m
 }
 
+// Allocation (available-to-promise): hand out on-hand stock at each location to
+// open sales orders first-come, first-served (earliest requested date, then
+// earliest order date), so two orders can't both count the same units.
+// Returns Map(sales_line id -> { open, allocated, short }) plus per item/location
+// totals of committed (open qty) and allocated.
+export function allocations(db, ix) {
+  const lines = new Map()
+  const committedAt = new Map()   // `${item}|${loc}` -> open qty on placed orders
+  const left = new Map()          // `${item}|${loc}` -> stock not yet allocated
+  const open = (db.sales || []).filter(s => s.kind === 'SO' && s.status === 'placed')
+    .sort((a, b) => (a.requested_date || '').localeCompare(b.requested_date || '') || (a.order_date || '').localeCompare(b.order_date || '') || String(a.id).localeCompare(String(b.id)))
+  for (const s of open) {
+    for (const l of ix.linesBySale.get(s.id) || []) {
+      const qty = Math.max(0, Number(l.qty) - Number(l.qty_shipped))
+      if (!qty) continue
+      const key = l.item_id + '|' + s.location_id
+      if (!left.has(key)) left.set(key, Math.max(0, ix.onHand(l.item_id, s.location_id)))
+      const allocated = Math.min(qty, left.get(key))
+      left.set(key, left.get(key) - allocated)
+      committedAt.set(key, (committedAt.get(key) || 0) + qty)
+      lines.set(l.id, { open: qty, allocated, short: qty - allocated })
+    }
+  }
+  const committedOf = (item, loc) => loc ? committedAt.get(item + '|' + loc) || 0
+    : [...committedAt.entries()].reduce((a, [k, q]) => a + (k.startsWith(item + '|') && !ix.qh.has(k.split('|')[1]) ? q : 0), 0)
+  // Free stock at a location after earlier orders have taken their share
+  const freeAt = (item, loc) => left.has(item + '|' + loc) ? left.get(item + '|' + loc) : Math.max(0, ix.onHand(item, loc))
+  return { lines, committedOf, freeAt }
+}
+
 // Estimated date a backordered item will be available again:
 // earliest open PO/WO that covers it, otherwise today + item lead time.
 export function etaFor(itemId, shortQty, db, ix, today = todayLima(), orders = onOrder(db, ix)) {
