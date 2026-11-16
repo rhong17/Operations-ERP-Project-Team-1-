@@ -40,6 +40,8 @@ stored data** — never hard-code a total, rate or metric in the UI.
 2. **Derived numbers live in `calc.js`** (or a SQL function), never typed into the UI.
 3. Money is Peruvian soles (S/). Retail `sale_price` includes 18% IGV; stored `unit_price` on sales lines is before IGV.
    Business dates are Lima time (`America/Lima`, UTC-5) — use helpers in `calc.js`.
+   Items and locations have `name` (company's Spanish name) and `name_en` (English). The app swaps them on load:
+   in the UI `.name` is English and `.name_es` is the original. Show US$ only as a note via `useUsd()` (rate in settings).
 4. Keep the **"How this works in the ERP"** panel on each page accurate when you change behaviour — the team
    uses it to explain ERP/MRP concepts in the demo.
 5. MRP must keep matching the Chapter 10 slide format/logic (Gross Req, Scheduled Receipts, Projected On Hand,

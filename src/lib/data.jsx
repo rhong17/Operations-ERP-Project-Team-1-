@@ -51,6 +51,8 @@ export function DataProvider({ profile, children }) {
       const tables = isStaff ? STAFF_TABLES : CUSTOMER_TABLES
       const results = await Promise.all(tables.map(fetchAll))
       const next = Object.fromEntries(tables.map((t, i) => [t, results[i]]))
+      // Show English names everywhere; keep the company's original Spanish name as name_es
+      for (const t of ['items', 'locations']) for (const r of next[t] || []) { r.name_es = r.name; r.name = r.name_en || r.name }
       setDb(next); setVersion(v => v + 1); setLastSync(new Date()); setError(null)
     } catch (e) { setError(e.message) }
   }, [isStaff])

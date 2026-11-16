@@ -52,19 +52,44 @@ items = list(rows('Items'))
 labor = {r['parent_item_id']: r['cut_sew_labor_cost'] for r in rows('Cost_Rollup')}
 FOQ = {'C11': 2000, 'C12': 2000, 'C13': 2000, 'C14': 1000, 'C15': 2000, 'C16': 300}
 item_by = {i['item_id']: i for i in items}
+
+# English display names (the company's Spanish names are kept in "name").
+# Translated by hand from the product descriptions; edit here if wording should change.
+COLOR_EN = {'NEGRO': 'Black', 'HUESO': 'Bone', 'LILA': 'Lilac', 'CRISTAL': 'Crystal Blue'}
+def name_en(i):
+    iid, c, sz = i['item_id'], COLOR_EN.get((i['color'] or '').strip(), (i['color'] or '').title()), i['size']
+    fixed = {
+        'FG11': f"Men's Crew-Neck Tee, Short Sleeve · {c} · {sz}",
+        'FG12': f"Women's Crew-Neck Tee, Long Sleeve · {c} · {sz}",
+        'FG13': f"Women's Rib Racerback Tank · {c} · {sz}",
+        'FG14': f"Women's Short Dress with Pockets · {c} · {sz}",
+        'KIT01': "Women's V-Neck Tee 3-Pack · M (Black / Bone / Lilac)",
+        'C01': 'Jersey Fabric, 100% Cotton · Black', 'C02': 'Jersey Fabric, 100% Cotton · Bone',
+        'C03': 'Jersey Fabric, 100% Cotton · Lilac', 'C04': 'Jersey Fabric, 100% Cotton · Crystal Blue',
+        'C05': 'Rib Fabric for Collars · Black', 'C06': 'Rib Fabric for Collars · Bone',
+        'C07': 'Rib Fabric for Collars · Lilac', 'C08': 'Rib Fabric for Collars · Crystal Blue',
+        'C09': 'Rib Fabric for Tank Tops · Black', 'C10': 'Polyester Sewing Thread (5,000 yd cone)',
+        'C11': 'Woven Brand Label', 'C12': 'Size Label', 'C13': 'Care & Content Label',
+        'C14': 'Printed Hangtag', 'C15': 'Self-Seal Polybag', 'C16': 'Printed 3-Pack Box',
+    }
+    if iid in fixed: return fixed[iid]
+    if i['name'].startswith('POLO BASICO MC CUELLO V DAMA'): return f"Women's V-Neck Tee, Short Sleeve · {c} · {sz}"
+    return i['name']
+LOC_EN = {'LOC01': 'Fabric & Trims Warehouse', 'LOC02': 'Cutting & Sewing Workshop', 'LOC03': 'Finished Goods Warehouse',
+          'LOC04': 'Gamarra Retail Store', 'LOC05': 'Quality Hold'}
 item_rows = []
 for i in items:
     iid = i['item_id']
-    item_rows.append([q(iid), q(str(i['ean'])), q(i['cod_interno']), q(i['variant_sku']), q(i['name']), q(i['item_type']),
+    item_rows.append([q(iid), q(str(i['ean'])), q(i['cod_interno']), q(i['variant_sku']), q(i['name']), q(name_en(i)), q(i['item_type']),
         q(i['style']), q(i['gender']), q(i['color']), q(i['size']), q(i['uom']),
         q(round(i['unit_cost'], 4)), q(round(i['unit_cost'], 4)), q(labor.get(iid, 0)),
         q(i['sale_price']), q(i['wholesale_price']), q(i['make_or_buy']), q(i['primary_supplier_id']),
         q(int(i['lead_time_days'])), q('FOQ' if iid in FOQ else 'L4L'), q(FOQ.get(iid)), q(i['source'])])
 
 locs = list(rows('Locations'))
-loc_rows = [[q(l['location_id']), q(l['name']), q(l['type']), q(l['address']), q(l['district']), q(l['city']), 'false', str(n)]
+loc_rows = [[q(l['location_id']), q(l['name']), q(LOC_EN.get(l['location_id'])), q(l['type']), q(l['address']), q(l['district']), q(l['city']), 'false', str(n)]
             for n, l in enumerate(locs, 1)]
-loc_rows.append(["'LOC05'", "'Cuarentena de Calidad (Quality Hold)'", "'Quality hold for defective returns (at the workshop)'",
+loc_rows.append(["'LOC05'", "'Cuarentena de Calidad'", "'Quality Hold'", "'Quality hold for defective returns (at the workshop)'",
                  "'Jr. Antonio Bazo 1120'", "'La Victoria'", "'Lima'", 'true', '5'])
 
 bom = list(rows('BOM'))
@@ -260,11 +285,12 @@ S.append(values('settings', ['key','value','text_value','label','unit','descript
   ["'service_z'", q(st('service_level_z')), 'null', "'Service level z'", "'z-score'", "'1.65 ≈ 95% cycle service level (used for safety stock)'"],
   ["'working_days_per_year'", q(st('working_days_per_year')), 'null', "'Working days per year'", "'days'", "'Mon–Sat × 52 weeks; converts daily demand to annual demand'"],
   ["'demand_window_days'", '(current_date - date \'2026-05-01\' + 1)', 'null', "'Demand history window'", "'calendar days'", "'Average usage for ROP/EOQ uses sales from the last N days (default: since May 1, 2026)'"],
+  ["'usd_rate'", '3.70', 'null', "'Exchange rate (S/ per US$)'", "'S/ per 1 US$'", "'Only used for the ≈ US$ notes next to big totals. Update it to the current rate before the demo.'"],
   ["'review_period_days'", '14', 'null', "'Periodic review interval (R)'", "'days'", "'How often the buyer reviews stock for the periodic (order-up-to) rule'"],
 ]))
-S.append(values('locations', ['id','name','type','address','district','city','is_quality_hold','sort'], loc_rows))
+S.append(values('locations', ['id','name','name_en','type','address','district','city','is_quality_hold','sort'], loc_rows))
 S.append(values('suppliers', ['id','name','supplier_type','contact_name','email','phone','city','country','lead_time_days','payment_terms','items_supplied'], sup_rows))
-S.append(values('items', ['id','ean','sku','variant_sku','name','item_type','style','gender','color','size','uom','std_cost','avg_cost','labor_cost',
+S.append(values('items', ['id','ean','sku','variant_sku','name','name_en','item_type','style','gender','color','size','uom','std_cost','avg_cost','labor_cost',
                           'sale_price','wholesale_price','make_or_buy','supplier_id','lead_time_days','lot_rule','lot_qty','source'], item_rows))
 S.append(values('bom', ['parent_id','component_id','qty_per','scrap_pct'], bom_rows))
 S.append(values('customers', ['id','name','type','channel','email','phone','city','country','igv_exempt','price_list'], cust_rows))
