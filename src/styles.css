@@ -75,6 +75,7 @@ input[type=checkbox] { width: auto; }
 .side a.active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
 .side .num-tag { margin-left: auto; background: var(--soft); color: var(--muted); border-radius: 99px; padding: 0 7px; font-size: 11px; }
 .side a.active .num-tag { background: var(--panel); color: var(--accent-ink); }
+.side-foot { margin: 24px 12px 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .main { min-width: 0; }
 .topbar { display: flex; gap: 14px; align-items: center; justify-content: flex-end; padding: 10px 32px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 5; }
 .topbar .who { font-size: 13px; }
