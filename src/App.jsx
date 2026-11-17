@@ -101,6 +101,7 @@ function Shell({ profile }) {
           <NavLink to="/" end>Shop & pickup</NavLink>
           <NavLink to="/orders">My orders</NavLink>
         </>}
+        <div className="side-foot">Built by Team 1 · BYU GSCM</div>
       </aside>
       <div className="main">
         <header className="topbar">
