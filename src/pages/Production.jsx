@@ -154,14 +154,20 @@ function WODetail({ id, onClose }) {
 function Complete({ w, onClose }) {
   const { call } = useData()
   const [issues, setIssues] = useState([])
-  const [good, setGood] = useState(w.qty_planned)
   const [start, setStart] = useState(toLimaInput(w.started_at))
-  const [finish, setFinish] = useState(toLimaInput(new Date()))
+  // The time inputs are to the minute, so if materials were issued this same minute,
+  // default the finish one minute after the start (otherwise Complete stays disabled).
+  const [finish, setFinish] = useState(() => {
+    const now = toLimaInput(new Date()), st = toLimaInput(w.started_at)
+    return now > st ? now : toLimaInput(new Date(w.started_at).getTime() + 60000)
+  })
   const scrap = sum(issues.filter(i => i.kind === 'scrap'), i => Number(i.qty) || 0)
   const rework = sum(issues.filter(i => i.kind === 'rework'), i => Number(i.qty) || 0)
-  const ok = Number(good) + scrap === Number(w.qty_planned) && rework <= Number(good) && issues.every(i => i.reason && Number(i.qty) > 0) && finish > start
+  // Every started unit ends up either good or scrapped, so good is always started − scrap.
+  const good = Number(w.qty_planned) - scrap
+  const ok = good >= 0 && rework <= good && issues.every(i => i.reason && Number(i.qty) > 0) && finish > start
   const save = async () => {
-    const r = await call('complete_wo', { p: { id: w.id, qty_good: Number(good), issues, started_at: fromLimaInput(start), finished_at: fromLimaInput(finish) } },
+    const r = await call('complete_wo', { p: { id: w.id, qty_good: good, issues, started_at: fromLimaInput(start), finished_at: fromLimaInput(finish) } },
       { success: r => `Completed: ${r.good} good, ${r.scrap} scrapped · unit cost ${money(r.unit_cost)}` })
     if (r) onClose()
   }
@@ -169,7 +175,7 @@ function Complete({ w, onClose }) {
     <Modal wide title={`Complete ${w.id}`} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Back</button><Btn kind="primary" disabled={!ok} onClick={save}>Complete work order</Btn></>}>
       <div className="form">
         <Field label="Quantity started"><input value={w.qty_planned} disabled /></Field>
-        <Field label="Good units" hint="good + scrap must equal started"><input type="number" min="0" value={good} onChange={e => setGood(e.target.value)} /></Field>
+        <Field label="Good units" hint="started − scrap (add scrap lines below)"><input value={good} disabled /></Field>
         <Field label="Actual start (Lima time)"><input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></Field>
         <Field label="Actual finish (Lima time)"><input type="datetime-local" value={finish} onChange={e => setFinish(e.target.value)} /></Field>
       </div>
@@ -182,10 +188,10 @@ function Complete({ w, onClose }) {
           <td><button className="icon-btn" onClick={() => setIssues(a => a.filter((_, j) => j !== k))}>✕</button></td>
         </tr>))}</tbody></table>
       <div className="row gap" style={{ marginTop: 8 }}>
-        <button className="btn small" onClick={() => { setIssues(a => [...a, { kind: 'scrap', qty: 1, reason: '' }]); setGood(g => Math.max(0, Number(g) - 1)) }}>+ Scrap line</button>
+        <button className="btn small" onClick={() => setIssues(a => [...a, { kind: 'scrap', qty: 1, reason: '' }])}>+ Scrap line</button>
         <button className="btn small" onClick={() => setIssues(a => [...a, { kind: 'rework', qty: 1, reason: '' }])}>+ Rework line</button>
       </div>
-      <p className={ok ? 'muted' : 'error-text'}>Started {w.qty_planned} = good {good} + scrap {scrap}{Number(good) + scrap !== Number(w.qty_planned) ? ' ✗' : ' ✓'} · rework {rework} (part of good){finish <= start ? ' · finish must be after start' : ''}</p>
+      <p className={ok ? 'muted' : 'error-text'}>Started {w.qty_planned} = good {good} + scrap {scrap}{good < 0 ? ' · scrap cannot exceed the quantity started' : ''} · rework {rework} (part of good){rework > good ? ' · rework cannot exceed good' : ''}{finish <= start ? ' · finish must be after start' : ''}{issues.some(i => !i.reason) ? ' · pick a reason for each line' : ''}</p>
     </Modal>
   )
 }
