@@ -253,6 +253,11 @@ input[type=checkbox] { width: auto; }
 .welcome-card input { padding: 11px 13px; font-size: 15px; }
 .welcome-card .field-label { font-size: 13px; }
 .welcome-card form { display: grid; gap: 16px; margin-top: 22px; }
+/* Create account: wider card with a 2-column form so it is no taller than Sign in */
+.welcome-card.wide { width: min(600px, 100%); }
+.welcome-card form.two { grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.welcome-card form.two > :not(.field) { grid-column: 1 / -1; }
+.welcome-card form.two .welcome-roles { grid-template-columns: 1fr 1fr; gap: 12px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--soft); border-radius: 10px; padding: 4px; }
 .seg button { font: inherit; font-size: 13.5px; font-weight: 600; border: 0; background: transparent; color: var(--muted); padding: 8px; border-radius: 7px; cursor: pointer; }
 .seg button.on { background: var(--panel); color: var(--brand); box-shadow: 0 1px 3px rgba(26,32,81,.12); }
@@ -264,6 +269,12 @@ input[type=checkbox] { width: auto; }
 .link-btn { font: inherit; background: none; border: 0; padding: 0; color: var(--accent-ink); font-weight: 600; cursor: pointer; }
 .link-btn:hover { text-decoration: underline; }
 .welcome-foot { margin: 0; }
+/* Desktop: the page is exactly one screen tall in both views; if a window is very short, only the form side scrolls */
+@media (min-width: 901px) {
+  .welcome { height: 100vh; height: 100dvh; }
+  .welcome-hero, .welcome-panel { min-height: 0; }
+  .welcome-panel { overflow-y: auto; justify-content: safe center; }
+}
 @media (max-width: 900px) {
   .welcome { grid-template-columns: 1fr; padding: 12px; }
   .welcome-hero { padding: 22px 18px 24px; gap: 16px; border-radius: 16px; }
@@ -274,6 +285,8 @@ input[type=checkbox] { width: auto; }
   .welcome-tiles { max-width: none; }
   .welcome-panel { padding: 20px 4px 28px; justify-content: flex-start; }
   .welcome-card { padding: 22px; }
+  .welcome-card h2 { font-size: 24px; }
+  .welcome-card form.two, .welcome-card form.two .welcome-roles { grid-template-columns: 1fr; }
   }
 @media (max-width: 600px) {
   .welcome-hero { padding: 16px 14px 20px; gap: 12px; }

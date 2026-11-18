@@ -57,24 +57,23 @@ export default function Login() {
       </section>
 
       <section className="welcome-panel">
-        <div className="welcome-card">
+        <div className={'welcome-card' + (mode === 'signup' ? ' wide' : '')}>
           <h2>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
-          <p className="muted">{mode === 'signin' ? 'Sign in to the Textiles Move ERP.' : 'Each person gets their own login, so every transaction records who made it.'}</p>
+          <p className="muted">{mode === 'signin' ? 'Sign in to the Textiles Move ERP.' : 'One login per person, so every transaction records who made it.'}</p>
           <div className="seg" role="tablist">
             <button type="button" role="tab" aria-selected={mode === 'signin'} className={mode === 'signin' ? 'on' : ''} onClick={() => switchTo('signin')}>Sign in</button>
             <button type="button" role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'on' : ''} onClick={() => switchTo('signup')}>Create account</button>
           </div>
-          <form onSubmit={submit}>
+          <form onSubmit={submit} className={mode === 'signup' ? 'two' : ''}>
             {mode === 'signup' && <label className="field"><span className="field-label">Full name</span><input autoComplete="name" value={f.name} onChange={set('name')} required /></label>}
             <label className="field"><span className="field-label">Email</span><input type="email" autoComplete="email" value={f.email} onChange={set('email')} required /></label>
-            <label className="field"><span className="field-label">Password</span><input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} value={f.password} onChange={set('password')} required />
-              {mode === 'signup' && <span className="field-hint">At least 6 characters.</span>}</label>
+            <label className="field"><span className="field-label">Password</span><input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} value={f.password} onChange={set('password')} required placeholder={mode === 'signup' ? 'At least 6 characters' : undefined} /></label>
             {mode === 'signup' && <>
               <label className="field"><span className="field-label">Team code <span className="muted">(staff only)</span></span>
-                <input value={f.code} onChange={set('code')} placeholder="Leave blank if you are a customer" autoComplete="off" /></label>
+                <input value={f.code} onChange={set('code')} placeholder="Blank if you're a customer" autoComplete="off" /></label>
               <div className="welcome-roles">
-                <div><b>Teammates</b><span>Enter the team code your group shared → full ERP access.</span></div>
-                <div><b>Customers</b><span>Leave it blank → shop and track pickup orders in the portal.</span></div>
+                <div><b>Teammates</b><span>enter the team code → full ERP access</span></div>
+                <div><b>Customers</b><span>leave it blank → pickup portal</span></div>
               </div>
             </>}
             {msg && <p className={msg.tone === 'error' ? 'error-text' : 'pos'}>{msg.text}</p>}
