@@ -10,6 +10,13 @@ const TILES = [
   { src: img('photo-1562157873-818bc0726f68', 500), alt: 'Folded T-shirts in six colors' },
 ]
 
+// What a staff login opens — mirrors the sidebar groups, shown under the sign-in card.
+const MODULES = [
+  { group: 'Sell', items: 'Point of sale · Sales orders · Returns' },
+  { group: 'Make', items: 'Inventory · Production orders · MRP' },
+  { group: 'Buy & analyze', items: 'Purchasing · Financials · Reports' },
+]
+
 // Welcome page: sign in / create account. Teammates enter the team code to get staff access;
 // anyone else who signs up becomes a customer of the online pickup portal.
 export default function Login() {
@@ -57,6 +64,10 @@ export default function Login() {
       </section>
 
       <section className="welcome-panel">
+        <div className="welcome-top">
+          <span className="welcome-pill"><span className="dot" /> Live · shared by every user</span>
+          <span className="muted small">Need access? Ask your team for the team code.</span>
+        </div>
         <div className="welcome-card">
           <h2>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
           <p className="muted">{mode === 'signin' ? 'Sign in to the Textiles Move ERP.' : 'Each person gets their own login, so every transaction records who made it.'}</p>
@@ -84,6 +95,12 @@ export default function Login() {
             {mode === 'signin' ? <>New here? <button type="button" className="link-btn" onClick={() => switchTo('signup')}>Create an account</button></>
               : <>Already have an account? <button type="button" className="link-btn" onClick={() => switchTo('signin')}>Sign in</button></>}
           </p>
+        </div>
+        <div className="welcome-modules">
+          <div className="welcome-modules-title">Inside the ERP</div>
+          <div className="welcome-modules-grid">
+            {MODULES.map(m => <div key={m.group}><b>{m.group}</b><span>{m.items}</span></div>)}
+          </div>
         </div>
         <p className="muted small welcome-foot">Built by Team 1 · BYU GSCM</p>
       </section>
