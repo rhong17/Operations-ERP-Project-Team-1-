@@ -6,6 +6,7 @@ import { Transfer } from './Inventory.jsx'
 import { NewPO } from './Purchasing.jsx'
 
 export const QUALITY_REASONS = ['Seam failure', 'Fabric defect', 'Cutting error', 'Machine issue']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 export const CANCEL_REASONS = ['Entered by mistake', 'Order cancelled', 'Materials needed elsewhere']
 
 export default function Production() {
@@ -32,6 +33,7 @@ function Orders() {
   const [filter, setFilter] = useState('open')
   const [creating, setCreating] = useState(false)
   const [openId, setOpenId] = useState(null)
+  const today = todayLima()
   const list = db.work_orders.filter(w => filter === 'all' || (filter === 'open' ? ['planned', 'in_progress'].includes(w.status) : w.status === filter))
     .sort((a, b) => b.id.localeCompare(a.id))
   return <>
@@ -46,7 +48,8 @@ function Orders() {
         {list.map(w => <tr key={w.id} className={'click ' + (w.status === 'cancelled' ? 'dim' : '')} onClick={() => setOpenId(w.id)}>
           <td><b>{w.id}</b></td><td>{ix.items.get(w.item_id)?.name}</td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good ?? ''}</td><td className="num">{w.qty_scrap || ''}</td><td className="num">{w.qty_rework || ''}</td>
           <td className="nowrap">{dfmt(w.due_date)}</td><td className="small">{w.started_at ? dt(w.started_at) : ''}{w.finished_at && w.status === 'completed' ? ' → ' + dt(w.finished_at) : ''}</td>
-          <td className="num">{w.unit_cost ? money(w.unit_cost) : ''}</td><td><StatusBadge status={w.status} /></td></tr>)}
+          <td className="num">{w.unit_cost ? money(w.unit_cost) : ''}</td>
+          <td className="nowrap"><StatusBadge status={w.status} />{['planned', 'in_progress'].includes(w.status) && w.due_date < today && <> <Badge tone="red">late</Badge></>}</td></tr>)}
       </tbody></table></div>}
     </Card>
     {creating && <NewWO onClose={() => setCreating(false)} onCreated={id => { setCreating(false); setOpenId(id) }} />}
@@ -58,7 +61,7 @@ export function MaterialCheck({ itemId, qty, loc, onTransfer, onBuy }) {
   const { db, ix } = useData()
   const rows = materialCheck(db, ix, itemId, qty, loc)
   if (!rows.length) return null
-  return <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Required (incl. scrap %)</th><th className="num">At {ix.locations.get(loc)?.id}</th><th className="num">Short</th><th></th></tr></thead><tbody>
+  return <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Required (incl. scrap %)</th><th className="num">At {ix.locations.get(loc)?.name}</th><th className="num">Short</th><th></th></tr></thead><tbody>
     {rows.map(r => <tr key={r.component.id}><td>{r.component.name}</td><td className="num">{qtyFmt(r.need, r.component.uom)}</td><td className="num">{qtyFmt(r.here, r.component.uom)}</td>
       <td className={'num ' + (r.short ? 'neg' : 'pos')}>{r.short ? qtyFmt(r.short, r.component.uom) : '✓'}</td>
       <td>{r.short > 0 && <div className="row gap">
@@ -107,6 +110,7 @@ function WODetail({ id, onClose }) {
   const [completing, setCompleting] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [transfer, setTransfer] = useState(null)
+  const [buy, setBuy] = useState(null)
   if (!w) return null
   const item = ix.items.get(w.item_id)
   const comps = db.wo_components.filter(c => c.wo_id === id)
@@ -127,7 +131,8 @@ function WODetail({ id, onClose }) {
       {w.status === 'planned' ? <>
         <h3>Components needed (material check)</h3>
         <MaterialCheck itemId={w.item_id} qty={w.qty_planned} loc={w.location_id}
-          onTransfer={r => setTransfer({ item: r.component.id, from: Object.entries(ix.stockBy.get(r.component.id) || {}).filter(([l, q]) => l !== w.location_id && !ix.qh.has(l) && q > 0).sort((a, b) => b[1] - a[1])[0]?.[0], to: w.location_id, qty: Math.min(r.short, r.elsewhere) })} />
+          onTransfer={r => setTransfer({ item: r.component.id, from: Object.entries(ix.stockBy.get(r.component.id) || {}).filter(([l, q]) => l !== w.location_id && !ix.qh.has(l) && q > 0).sort((a, b) => b[1] - a[1])[0]?.[0], to: w.location_id, qty: Math.min(r.short, r.elsewhere) })}
+          onBuy={r => setBuy({ supplier_id: r.component.supplier_id, item_id: r.component.id, qty: r.short - Math.max(0, r.elsewhere) })} />
       </> : <>
         <h3>Components issued (bill of materials × {w.qty_planned})</h3>
         <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Issued</th><th className="num">Unit cost</th><th className="num">Value</th></tr></thead><tbody>
@@ -147,6 +152,7 @@ function WODetail({ id, onClose }) {
       </>}
       {completing && <Complete w={w} onClose={() => setCompleting(false)} />}
       {transfer && <Modal title="Transfer for this work order" onClose={() => setTransfer(null)}><Transfer preset={transfer} onDone={() => setTransfer(null)} /></Modal>}
+      {buy && <NewPO preset={buy} onClose={() => setBuy(null)} onCreated={() => setBuy(null)} />}
     </Modal>
   )
 }
@@ -203,7 +209,18 @@ function Report() {
   const r = useMemo(() => productionReport(db, ix, from, to), [db, ix, from, to])
   const byItem = [...groupBy(r.wos, 'item_id').entries()].map(([id, ws]) => ({ item: ix.items.get(id), n: ws.length, started: sum(ws, w => w.qty_planned), good: sum(ws, w => w.qty_good), scrap: sum(ws, w => w.qty_scrap), rework: sum(ws, w => w.qty_rework) }))
     .sort((a, b) => b.started - a.started)
-  const byMonth = [...groupBy(r.wos, w => limaDate(w.finished_at).slice(0, 7)).entries()].sort().map(([m, ws]) => ({ label: m, value: sum(ws, w => w.qty_good) }))
+  const byMonth = useMemo(() => {
+    // one bar per month in the range, including months with no production (shown as 0)
+    const g = groupBy(r.wos, w => limaDate(w.finished_at).slice(0, 7))
+    const out = []
+    if (!/^\d{4}-\d{2}/.test(from) || !/^\d{4}-\d{2}/.test(to)) return out
+    for (let m = from.slice(0, 7); m <= to.slice(0, 7) && out.length < 120;) {
+      const [y, mo] = m.split('-').map(Number)
+      out.push({ label: `${MONTHS[mo - 1]} '${String(y).slice(2)}`, value: sum(g.get(m) || [], w => w.qty_good) })
+      m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`
+    }
+    return out
+  }, [r, from, to])
   return <>
     <Card><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b) }} /></Card>
     <div className="stats">

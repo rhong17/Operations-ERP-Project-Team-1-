@@ -53,15 +53,16 @@ end $$;
 create or replace function _move(p_item text, p_loc text, p_qty numeric, p_cost numeric, p_kind text,
   p_doc_type text, p_doc_id text, p_reason text default null, p_at timestamptz default now()) returns void
 language plpgsql security definer set search_path = public as $$
-declare v_have numeric;
+declare v_have numeric; v_name text; v_uom text;
 begin
   if coalesce(p_qty,0) = 0 then return; end if;
   insert into stock(item_id, location_id, qty) values (p_item, p_loc, 0) on conflict do nothing;
   select qty into v_have from stock where item_id = p_item and location_id = p_loc for update;
   if v_have + p_qty < -0.00001 then
-    raise exception 'Not enough "%" at %: on hand %, needed %',
-      (select name from items where id = p_item), (select name from locations where id = p_loc),
-      round(v_have, 3), round(-p_qty, 3);
+    select coalesce(name_en, name), case when uom = 'unit' then '' else ' ' || uom end into v_name, v_uom from items where id = p_item;
+    raise exception 'Not enough "%" at %: on hand %, needed %', v_name,
+      (select coalesce(name_en, name) from locations where id = p_loc),
+      trim_scale(round(v_have, 3)) || v_uom, trim_scale(round(-p_qty, 3)) || v_uom;
   end if;
   update stock set qty = greatest(0, round(v_have + p_qty, 4))
    where item_id = p_item and location_id = p_loc;
@@ -101,7 +102,7 @@ begin
   elsif i.sale_price is not null then
     v_price := round(i.sale_price / (1 + coalesce(_setting('igv_rate'),0.18)), 2);  -- shelf price includes IGV
   end if;
-  if v_price is null then raise exception '"%" is not a sellable item (no price)', i.name; end if;
+  if v_price is null then raise exception '"%" is not a sellable item (no price)', coalesce(i.name_en, i.name); end if;
   return v_price;
 end $$;
 
@@ -210,7 +211,7 @@ begin
   loop
     select coalesce(sum(qty),0) into v_have from stock where item_id = r.item_id and location_id = p->>'location_id';
     if r.qty > v_have then
-      raise exception 'Only % of "%" available at that location', v_have, (select name from items where id = r.item_id);
+      raise exception 'Only % of "%" available at that location', trim_scale(round(v_have, 3)), (select coalesce(name_en, name) from items where id = r.item_id);
     end if;
   end loop;
   -- customers cannot set their own prices
@@ -242,7 +243,7 @@ begin
     v_back := v_back + (l.qty - l.qty_shipped - v_ship);
   end loop;
   if v_shipped = 0 then
-    raise exception 'Nothing on hand at % to ship — the whole order is backordered', (select name from locations where id = v_loc);
+    raise exception 'Nothing on hand at % to ship — the whole order is backordered', (select coalesce(name_en, name) from locations where id = v_loc);
   end if;
   perform _post_sale_gl(now(), p_id, g, d, t, c, 'Sales order fulfilment');
   if v_back = 0 then
@@ -311,7 +312,7 @@ begin
     if l.id is null then raise exception 'That line is not on sale %', so.id; end if;
     if coalesce(r.qty,0) <= 0 then raise exception 'Return quantity must be positive'; end if;
     if r.qty > l.qty_shipped - l.qty_returned then
-      raise exception 'Only % of "%" can still be returned', l.qty_shipped - l.qty_returned, (select name from items where id = l.item_id);
+      raise exception 'Only % of "%" can still be returned', l.qty_shipped - l.qty_returned, (select coalesce(name_en, name) from items where id = l.item_id);
     end if;
     if coalesce(r.reason,'') = '' then raise exception 'A reason code is required for every returned item'; end if;
     v_cond := case when r.reason = any(quality_reasons) then 'defective' else 'resellable' end;
@@ -468,7 +469,7 @@ begin
     if l.id is null then raise exception 'Line not on this PO'; end if;
     if r.qty < 0 then raise exception 'Quantity must be positive'; end if;
     if r.qty > l.qty_ordered - l.qty_received + 0.0001 then
-      raise exception 'Receiving % of "%" but only % is still open on the PO', r.qty, (select name from items where id = l.item_id), l.qty_ordered - l.qty_received;
+      raise exception 'Receiving % of "%" but only % is still open on the PO', r.qty, (select coalesce(name_en, name) from items where id = l.item_id), l.qty_ordered - l.qty_received;
     end if;
     perform _wac_receive(l.item_id, r.qty, l.unit_cost);
     perform _move(l.item_id, v_loc, r.qty, l.unit_cost, 'receipt', 'po', po.id, null, v_at);
