@@ -16,7 +16,7 @@ export default function Production() {
       how={<>
         <p>A <b>work order (WO)</b> tells the workshop to make an item: what, how many, where. Every parent item has a <b>bill of materials (BOM)</b> — e.g. one V-neck tee = 0.19 kg jersey + 0.01 kg rib + thread + 4 labels + hangtag + polybag, plus a scrap allowance.</p>
         <ul>
-          <li><b>Create</b> reserves nothing yet, but shows a <b>material check</b>: required vs. on hand at the workshop, with shortcuts to transfer stock or buy it.</li>
+          <li><b>Create</b> reserves nothing yet, but shows a <b>material check</b> (fabric and thread can be partial kg / cones; labels, bags and boxes are rounded up to whole units): required vs. on hand at the workshop, with shortcuts to transfer stock or buy it.</li>
           <li><b>Issue materials</b> consumes every component per the BOM from the workshop location (stock ↓, value moves from Inventory to <i>Work in Process</i>). If anything is short, nothing is issued.</li>
           <li><b>Complete</b> records quantity good, scrapped and reworked (each with a quality reason code) and actual start/finish times. Good units are received into stock at a <b>rolled-up cost</b> = (components issued + cut &amp; sew labour) ÷ units started. Scrapped units' cost is expensed as <i>Scrap Expense</i>.</li>
           <li><b>Cancel</b> a planned WO (nothing to undo) or an in-progress WO (issued components go back to the shelf at their issued cost).</li>
@@ -83,11 +83,15 @@ export function MaterialCheck({ itemId, qty, loc, onTransfer, onBuy }) {
 export function NewWO({ onClose, onCreated, preset }) {
   const { db, ix, call } = useData()
   const parents = db.items.filter(i => ix.bomBy.has(i.id) && i.active)
-  const [f, setF] = useState({ item_id: preset?.item_id || 'FG02', qty: preset?.qty || 60, location_id: 'LOC02', output_location_id: 'LOC03', due_date: preset?.due_date || '', notes: preset?.notes || '' })
+  // Sewn items are made in the workshop; kits (3-packs) are assembled where the finished tees are stored.
+  const makeAt = id => ix.items.get(id)?.item_type === 'Kit' ? 'LOC03' : 'LOC02'
+  const startItem = preset?.item_id || 'FG02'
+  const [f, setF] = useState({ item_id: startItem, qty: preset?.qty || 60, location_id: makeAt(startItem), output_location_id: 'LOC03', due_date: preset?.due_date || '', notes: preset?.notes || '' })
   const [transfer, setTransfer] = useState(null)
   const [buy, setBuy] = useState(null)
   const item = ix.items.get(f.item_id)
   const due = f.due_date || addDays(todayLima(), Number(item?.lead_time_days || 0))
+  const pastDue = due < todayLima()
   const save = async () => {
     const r = await call('create_wo', { p: { ...f, qty: Number(f.qty), due_date: due } }, { success: r => `Work order ${r.id} created`, showRipple: false })
     if (r) onCreated(r.id)
@@ -95,11 +99,11 @@ export function NewWO({ onClose, onCreated, preset }) {
   return (
     <Modal wide title="New work order" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><Btn kind="primary" onClick={save} disabled={!(Number(f.qty) > 0)}>Create work order</Btn></>}>
       <div className="form">
-        <Field label="Item to make"><select value={f.item_id} onChange={e => setF({ ...f, item_id: e.target.value })}>{parents.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></Field>
+        <Field label="Item to make"><select value={f.item_id} onChange={e => setF({ ...f, item_id: e.target.value, location_id: makeAt(e.target.value) })}>{parents.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></Field>
         <Field label="Quantity"><input type="number" min="1" value={f.qty} onChange={e => setF({ ...f, qty: e.target.value })} /></Field>
         <Field label="Make at (components consumed here)"><LocationSelect value={f.location_id} onChange={v => setF({ ...f, location_id: v })} /></Field>
         <Field label="Receive finished goods into"><LocationSelect value={f.output_location_id} onChange={v => setF({ ...f, output_location_id: v })} /></Field>
-        <Field label="Due date" hint={preset?.due_date ? 'From MRP: the week this quantity is needed' : `Default = today + ${item?.lead_time_days} day production lead time`}><input type="date" value={due} onChange={e => setF({ ...f, due_date: e.target.value })} /></Field>
+        <Field label="Due date" hint={pastDue ? <span className="warn-text">This due date has already passed, so the order will show as late.</span> : preset?.due_date ? 'From MRP: the week this quantity is needed' : `Default = today + ${item?.lead_time_days} day production lead time`}><input type="date" value={due} onChange={e => setF({ ...f, due_date: e.target.value })} /></Field>
         <Field label="Notes"><input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} /></Field>
       </div>
       <h3>Material availability check</h3>

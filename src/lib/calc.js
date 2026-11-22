@@ -423,9 +423,14 @@ export function productionReport(db, ix, from, to) {
 }
 
 // ---------- materials check for a work order ----------
+// Same rule as create_wo in 02_logic.sql: kg and cones can be partial, countable items round up
+export const woComponentQty = (qty, b, uom) => {
+  const q = round(qty * effQty(b), 4)
+  return ['kg', 'cone'].includes(uom) ? q : Math.ceil(q)
+}
 export function materialCheck(db, ix, itemId, qty, loc) {
   return (ix.bomBy.get(itemId) || []).map(b => {
-    const need = round(qty * effQty(b), 4)
+    const need = woComponentQty(qty, b, ix.items.get(b.component_id)?.uom)
     const here = ix.onHand(b.component_id, loc)
     const total = ix.onHand(b.component_id)
     return { component: ix.items.get(b.component_id), need, here, total, short: Math.max(0, round(need - here, 4)), elsewhere: round(total - here, 4) }
