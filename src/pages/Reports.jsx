@@ -15,11 +15,11 @@ export default function Reports() {
   const top = useMemo(() => topItems(rows, ix, 15), [rows, ix])
   const policy = useMemo(() => inventoryPolicy(db, ix), [db, ix])
   const sc = useMemo(() => supplierScorecard(db, ix), [db, ix])
-  const byCust = [...groupBy(rows, r => r.sale.customer_id).entries()].map(([id, rs]) => ({ c: ix.customers.get(id), rev: sum(rs, r => r.revenue), units: sum(rs, r => r.qty), orders: new Set(rs.map(r => r.sale.id)).size })).sort((a, b) => b.rev - a.rev)
+  const byCust = [...groupBy(rows, r => r.sale.customer_id).entries()].map(([id, rs]) => ({ c: ix.customers.get(id), rev: sum(rs, r => r.revenue), units: sum(rs, r => r.qty), orders: new Set(rs.filter(r => !r.isReturn).map(r => r.sale.id)).size })).sort((a, b) => b.rev - a.rev)
 
   return (
     <Page title="Management Reports" subtitle="Everything is recalculated from the database whenever anyone changes something"
-      how={<p>Use the date range to look at any period of the 6-month sales history plus new activity. Sales are by shipment date (POS sale or sales-order fulfilment), net of discounts and before IGV.</p>}>
+      how={<p>Use the date range to look at any period of the 6-month sales history plus new activity. Sales are by shipment date (POS sale or sales-order fulfilment), net of discounts and before IGV. Returns are subtracted on the day they happen, exactly like the P&amp;L, so these totals match Financials.</p>}>
       <Card><div className="row gap wrap"><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b) }} />
         <select style={{ width: 130 }} value={grain} onChange={e => setGrain(e.target.value)}><option value="day">By day</option><option value="week">By week</option><option value="month">By month</option></select></div></Card>
       <Tabs value={tab} onChange={setTab} tabs={[['sales', 'Sales by period'], ['top', 'Top-selling items'], ['cust', 'Sales by customer'], ['low', 'Low stock & order-by'], ['loc', 'Inventory by location'], ['sup', 'Supplier performance']]} />

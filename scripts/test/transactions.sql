@@ -43,6 +43,18 @@ end $$;
 select place_pickup_order('{"location_id":"LOC04","lines":[{"item_id":"FG01","qty":2,"unit_price":0.01}]}') ->> 'id' as pickup \gset
 select pg_temp.ok((select customer_id from sales where id = :'pickup') = 'CUS13', 'pickup order belongs to the customer');
 select pg_temp.ok((select unit_price from sales_lines where sale_id = :'pickup') = 25.34, 'customer cannot set own price (retail price used)');
+-- stock promised to open wholesale orders cannot be taken by a portal customer
+select pg_temp.ok((select qty from free_stock() where item_id = 'FG02' and location_id = 'LOC03') =
+  greatest(0, pg_temp.q('FG02','LOC03') - (select sum(l.qty - l.qty_shipped) from sales_lines l join sales s on s.id = l.sale_id
+    where s.kind = 'SO' and s.status = 'placed' and s.location_id = 'LOC03' and l.item_id = 'FG02')), 'free stock = on hand minus open orders');
+do $$ begin
+  perform place_pickup_order(json_build_object('location_id','LOC03','lines', json_build_array(json_build_object('item_id','FG02','qty',
+    (select qty from free_stock() where item_id='FG02' and location_id='LOC03') + 1)))::jsonb);
+  raise exception 'FAIL: portal took stock reserved for another order';
+exception when others then
+  if sqlerrm like 'FAIL%' then raise; end if;
+  raise notice 'ok - portal cannot take reserved stock (%)', sqlerrm;
+end $$;
 
 -- ---------- staff ----------
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
@@ -200,6 +212,9 @@ select pg_temp.ok((select qty_required from wo_components where wo_id = :'wo4' a
 select pg_temp.ok((select qty_required from wo_components where wo_id = :'wo4' and item_id = 'C01') = 24.624, 'fabric keeps decimals (24.624 kg)');
 select pg_temp.ok((select count(*) from wo_components c join items i on i.id = c.item_id where i.uom not in ('kg','cone') and c.qty_required <> trunc(c.qty_required) and c.wo_id >= :'wo4') = 0, 'no fractional labels, bags or boxes');
 
+select pg_temp.ok(abs((select sum(credit)-sum(debit) from ledger where account='Accounts Payable')
+  - ((select coalesce(sum(qty*unit_cost),0) from po_receipts) - (select coalesce(sum(amount),0) from supplier_payments))) < 0.01,
+  'Accounts Payable = goods received - supplier payments (incl. advance paid before go-live)');
 select pg_temp.ok(pg_temp.balanced(), 'ledger balanced at the end');
 select pg_temp.ok(pg_temp.gl_matches_stock(), 'ledger Inventory = stock × average cost (within S/1)');
 select pg_temp.ok((select count(*) from stock where qty < 0) = 0, 'no negative stock anywhere');

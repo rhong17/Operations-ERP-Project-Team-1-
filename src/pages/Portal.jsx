@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
+import { supabase } from '../lib/supabase.js'
 import { Page, Card, Field, Btn, StatusBadge, Empty, Badge } from '../components/ui.jsx'
 import { money, dt, dfmt, setting, todayLima, addDays, round } from '../lib/calc.js'
 
@@ -8,7 +9,16 @@ const PICKUP = ['LOC04', 'LOC03']   // store and finished-goods warehouse
 
 // Customer-facing portal: see what's available where, and order for pickup.
 export default function Portal({ tab = 'shop', preview }) {
-  const { db, ix, call, profile } = useData()
+  const { db, ix, call, profile, version } = useData()
+  // Stock a customer can actually take: on hand minus what's promised to open orders.
+  // Comes from the database because customers can't see other customers' orders.
+  const [free, setFree] = useState(null)
+  useEffect(() => {
+    let stop = false
+    supabase.rpc('free_stock').then(({ data, error }) => { if (!stop && !error && data) setFree(new Map(data.map(r => [r.item_id + '|' + r.location_id, Number(r.qty)]))) })
+    return () => { stop = true }
+  }, [version])
+  const avail = (id, l) => free ? (free.get(id + '|' + l) || 0) : Math.max(0, ix.onHand(id, l))
   const igv = setting(db, 'igv_rate', 0.18)
   const [q, setQ] = useState('')
   const [cart, setCart] = useState({})
@@ -17,7 +27,7 @@ export default function Portal({ tab = 'shop', preview }) {
   const products = useMemo(() => db.items.filter(i => i.active && i.item_type !== 'Component' && i.sale_price && (!q || i.name.toLowerCase().includes(q.toLowerCase()))), [db.items, q])
   const me = db.customers.find(c => c.id === profile.customer_id)
   const myOrders = db.sales.filter(s => s.customer_id === profile.customer_id && s.kind === 'SO').sort((a, b) => b.order_date.localeCompare(a.order_date))
-  const lines = Object.entries(cart).filter(([, n]) => n > 0).map(([id, n]) => ({ item: ix.items.get(id), qty: n, avail: ix.onHand(id, loc) }))
+  const lines = Object.entries(cart).filter(([, n]) => n > 0).map(([id, n]) => ({ item: ix.items.get(id), qty: n, avail: avail(id, loc) }))
   const total = lines.reduce((a, l) => a + l.qty * Number(l.item.sale_price), 0)
   const bad = lines.filter(l => l.qty > l.avail)
 
@@ -49,7 +59,7 @@ export default function Portal({ tab = 'shop', preview }) {
               <div><span className="swatch" style={{ background: SWATCH[i.color] || '#ccc' }} /><b>{i.name}</b></div>
               <div className="es">{i.name_es}</div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{money(me?.price_list === 'wholesale' && i.wholesale_price ? i.wholesale_price * (1 + (me?.igv_exempt ? 0 : igv)) : i.sale_price)}</div>
-              <table className="tbl compact"><tbody>{PICKUP.map(l => { const n = ix.onHand(i.id, l); return <tr key={l}><td>{ix.locations.get(l)?.name}</td><td className="num">{n > 0 ? <Badge tone={n > 10 ? 'green' : 'amber'}>{n} available</Badge> : <Badge tone="red">out of stock</Badge>}</td></tr> })}</tbody></table>
+              <table className="tbl compact"><tbody>{PICKUP.map(l => { const n = avail(i.id, l); return <tr key={l}><td>{ix.locations.get(l)?.name}</td><td className="num">{n > 0 ? <Badge tone={n > 10 ? 'green' : 'amber'}>{n} available</Badge> : <Badge tone="red">out of stock</Badge>}</td></tr> })}</tbody></table>
               <div className="row gap"><button className="btn small" onClick={() => setCart(c => ({ ...c, [i.id]: Math.max(0, (c[i.id] || 0) - 1) }))}>−</button><b>{cart[i.id] || 0}</b><button className="btn small" onClick={() => setCart(c => ({ ...c, [i.id]: (c[i.id] || 0) + 1 }))}>+</button></div>
             </div>))}</div>
         </div>
