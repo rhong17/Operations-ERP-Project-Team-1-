@@ -57,6 +57,14 @@ function Orders() {
   </>
 }
 
+// 45 min · 6.5 h · 3 d 4 h
+const duration = ms => {
+  const min = Math.round(ms / 60000)
+  if (min < 60) return `${Math.max(min, 1)} min`
+  if (min < 24 * 60) return `${num(min / 60, 1)} h`
+  return `${Math.floor(min / 1440)} d ${Math.round((min % 1440) / 60)} h`
+}
+
 export function MaterialCheck({ itemId, qty, loc, onTransfer, onBuy }) {
   const { db, ix } = useData()
   const rows = materialCheck(db, ix, itemId, qty, loc)
@@ -74,7 +82,7 @@ export function MaterialCheck({ itemId, qty, loc, onTransfer, onBuy }) {
 export function NewWO({ onClose, onCreated, preset }) {
   const { db, ix, call } = useData()
   const parents = db.items.filter(i => ix.bomBy.has(i.id) && i.active)
-  const [f, setF] = useState({ item_id: preset?.item_id || 'FG02', qty: preset?.qty || 60, location_id: 'LOC02', output_location_id: 'LOC03', due_date: '', notes: preset?.notes || '' })
+  const [f, setF] = useState({ item_id: preset?.item_id || 'FG02', qty: preset?.qty || 60, location_id: 'LOC02', output_location_id: 'LOC03', due_date: preset?.due_date || '', notes: preset?.notes || '' })
   const [transfer, setTransfer] = useState(null)
   const [buy, setBuy] = useState(null)
   const item = ix.items.get(f.item_id)
@@ -90,7 +98,7 @@ export function NewWO({ onClose, onCreated, preset }) {
         <Field label="Quantity"><input type="number" min="1" value={f.qty} onChange={e => setF({ ...f, qty: e.target.value })} /></Field>
         <Field label="Make at (components consumed here)"><LocationSelect value={f.location_id} onChange={v => setF({ ...f, location_id: v })} /></Field>
         <Field label="Receive finished goods into"><LocationSelect value={f.output_location_id} onChange={v => setF({ ...f, output_location_id: v })} /></Field>
-        <Field label="Due date" hint={`Default = today + ${item?.lead_time_days} day production lead time`}><input type="date" value={due} onChange={e => setF({ ...f, due_date: e.target.value })} /></Field>
+        <Field label="Due date" hint={preset?.due_date ? 'From MRP: the week this quantity is needed' : `Default = today + ${item?.lead_time_days} day production lead time`}><input type="date" value={due} onChange={e => setF({ ...f, due_date: e.target.value })} /></Field>
         <Field label="Notes"><input value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} /></Field>
       </div>
       <h3>Material availability check</h3>
@@ -133,8 +141,8 @@ function WODetail({ id, onClose }) {
         <MaterialCheck itemId={w.item_id} qty={w.qty_planned} loc={w.location_id}
           onTransfer={r => setTransfer({ item: r.component.id, from: Object.entries(ix.stockBy.get(r.component.id) || {}).filter(([l, q]) => l !== w.location_id && !ix.qh.has(l) && q > 0).sort((a, b) => b[1] - a[1])[0]?.[0], to: w.location_id, qty: Math.min(r.short, r.elsewhere) })}
           onBuy={r => setBuy({ supplier_id: r.component.supplier_id, item_id: r.component.id, qty: r.short - Math.max(0, r.elsewhere) })} />
-      </> : <>
-        <h3>Components issued (bill of materials × {w.qty_planned})</h3>
+      </> : w.status === 'cancelled' && !comps.some(c => Number(c.qty_issued) > 0) ? <p className="muted">Cancelled before materials were issued — no stock or accounting was affected.</p> : <>
+        <h3>{w.status === 'cancelled' ? 'Components issued, then returned to stock when cancelled' : `Components issued (bill of materials × ${w.qty_planned})`}</h3>
         <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Issued</th><th className="num">Unit cost</th><th className="num">Value</th></tr></thead><tbody>
           {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td>{it?.name}</td><td className="num">{qtyFmt(c.qty_issued, it?.uom)}</td><td className="num">{c.unit_cost != null ? money(c.unit_cost) : ''}</td><td className="num">{c.unit_cost != null ? money(c.qty_issued * c.unit_cost) : ''}</td></tr> })}
         </tbody></table>
@@ -146,7 +154,7 @@ function WODetail({ id, onClose }) {
           <Stat label="Scrapped" value={w.qty_scrap} tone={w.qty_scrap ? 'bad' : ''} /><Stat label="Reworked (incl. in good)" value={w.qty_rework} />
           <Stat label="Materials + labour" value={money(Number(w.material_cost) + Number(w.labor_cost))} sub={`${money(w.material_cost)} + ${money(w.labor_cost)}`} />
           <Stat label="Unit cost" value={money(w.unit_cost)} sub={`std ${money(item?.std_cost)}`} />
-          <Stat label="Production time" value={`${num((new Date(w.finished_at) - new Date(w.started_at)) / 3600000, 1)} h`} sub={`${dt(w.started_at)} → ${dt(w.finished_at)}`} />
+          <Stat label="Production time" value={duration(new Date(w.finished_at) - new Date(w.started_at))} sub={`${dt(w.started_at)} → ${dt(w.finished_at)}`} />
         </div>
         {issues.length > 0 && <table className="tbl compact"><thead><tr><th>Quality issue</th><th>Type</th><th className="num">Qty</th></tr></thead><tbody>{issues.map(i => <tr key={i.id}><td>{i.reason}</td><td>{i.kind}</td><td className="num">{i.qty}</td></tr>)}</tbody></table>}
       </>}
