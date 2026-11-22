@@ -68,7 +68,7 @@ export default function POS() {
             <div style={{ marginTop: 12 }}><ItemSearch onPick={add} autoFocus stockAt={loc} filter={i => i.item_type !== 'Component'} /></div>
           </Card>
           <Card title={`Cart (${lines.length})`}>
-            {lines.length === 0 ? <Empty>Scan a barcode to start a sale.</Empty> : (
+            {lines.length === 0 ? <Empty icon="cart">Scan a barcode or search an item to start a sale.</Empty> : (
               <div className="tbl-wrap"><table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand here</th><th className="num">Qty</th><th className="num">Price (pre-IGV)</th><th className="num">Disc %</th><th className="num">Net</th><th></th></tr></thead>
                 <tbody>{lines.map((l, i) => (
                   <tr key={l.item.id}>

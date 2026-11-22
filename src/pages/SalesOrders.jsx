@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, useOpenParam } from '../components/ui.jsx'
 import { money, qtyFmt, dfmt, dt, etaFor, onOrder, setting, todayLima, addDays, round, allocations } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
@@ -9,6 +9,7 @@ export default function SalesOrders() {
   const [tab, setTab] = useState('open')
   const [creating, setCreating] = useState(false)
   const [openId, setOpenId] = useState(null)
+  useOpenParam(setOpenId)
   const orders = useMemo(() => db.sales.filter(s => s.kind === 'SO' && (tab === 'all' ? true : tab === 'open' ? s.status === 'placed' : tab === 'portal' ? s.channel === 'portal' : s.status === tab))
     .sort((a, b) => (b.order_date || '').localeCompare(a.order_date || '')).slice(0, 300), [db.sales, tab])
   const alloc = useMemo(() => allocations(db, ix), [db, ix])
@@ -26,7 +27,7 @@ export default function SalesOrders() {
       </>}>
       <Tabs value={tab} onChange={setTab} tabs={[['open', 'Order Placed'], ['fulfilled', 'Fulfilled'], ['closed', 'Closed'], ['cancelled', 'Cancelled'], ['portal', 'Portal pickups'], ['all', 'All']]} />
       <Card>
-        {orders.length === 0 ? <Empty>No orders here.</Empty> : (
+        {orders.length === 0 ? <Empty icon="cart" title="No orders here" action={<button className="btn primary small" onClick={() => setCreating(true)}>+ New sales order</button>}>Orders placed by wholesale customers or the customer portal show up here.</Empty> : (
           <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Ship from</th><th>Ordered</th><th>Requested</th><th className="num">Net value</th><th>Status</th><th></th></tr></thead>
             <tbody>{orders.map(s => {
               const b = backQty(s)

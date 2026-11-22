@@ -29,7 +29,7 @@ export default function Portal({ tab = 'shop', preview }) {
 
   if (tab === 'orders') return (
     <Page title="My orders" subtitle={me?.name}>
-      <Card>{myOrders.length === 0 ? <Empty>No orders yet.</Empty> : <table className="tbl"><thead><tr><th>Order</th><th>Placed</th><th>Pickup at</th><th>Pickup date</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody>
+      <Card>{myOrders.length === 0 ? <Empty icon="cart" title="No orders yet">Pick items above and place a pickup order — it will show here.</Empty> : <table className="tbl"><thead><tr><th>Order</th><th>Placed</th><th>Pickup at</th><th>Pickup date</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody>
         {myOrders.map(s => <tr key={s.id}><td><b>{s.id}</b></td><td className="nowrap">{dt(s.order_date)}</td><td>{ix.locations.get(s.location_id)?.name}</td><td className="nowrap">{dfmt(s.requested_date)}</td>
           <td className="small">{(ix.linesBySale.get(s.id) || []).map(l => `${l.qty}× ${ix.items.get(l.item_id)?.name}`).join(', ')}</td>
           <td><StatusBadge status={s.status} /></td>

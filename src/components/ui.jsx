@@ -1,6 +1,7 @@
 // Shared building blocks used by every page.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import JsBarcode from 'jsbarcode'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
 import { money, qtyFmt, dt } from '../lib/calc.js'
 
@@ -115,7 +116,65 @@ export function Btn({ children, onClick, kind = 'secondary', busyText, disabled,
   return <button type={type} title={title} className={`btn ${kind} ${small ? 'small' : ''}`} disabled={disabled || busy} onClick={run}>{busy ? (busyText || 'Working…') : children}</button>
 }
 
-export const Empty = ({ children }) => <div className="empty">{children}</div>
+// Opens a record when the URL has ?open=<id> (used by quick search), then removes the param.
+export function useOpenParam(onOpen) {
+  const [params, setParams] = useSearchParams()
+  const id = params.get('open')
+  useEffect(() => {
+    if (!id) return
+    onOpen(id)
+    const next = new URLSearchParams(params); next.delete('open'); setParams(next, { replace: true })
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+// Small line icons (stroke follows the text color). Keep the set tiny on purpose.
+const ICONS = {
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.35-4.35',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+  check: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+  box: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 22V12',
+  file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5',
+  cart: 'M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6',
+  truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  page: 'M3 3h18v18H3zM3 9h18M9 21V9',
+  scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12',
+  printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+}
+export const Icon = ({ name, size = 16 }) => (
+  <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={ICONS[name] || ICONS.inbox} />
+  </svg>
+)
+
+// Empty state: icon + message (+ optional title and action button)
+export const Empty = ({ children, title, icon = 'inbox', action }) => (
+  <div className="empty">
+    <div className="empty-icon"><Icon name={icon} size={22} /></div>
+    {title && <div className="empty-title">{title}</div>}
+    <div>{children}</div>
+    {action && <div className="empty-action">{action}</div>}
+  </div>
+)
+
+// Grey placeholder shapes shown while the ERP data loads
+export function LoadingScreen({ label = 'Loading ERP data…' }) {
+  return (
+    <div className="skel-shell" aria-busy="true" aria-label={label}>
+      <div className="skel-side">
+        <div className="skel skel-brand" />
+        {Array.from({ length: 9 }, (_, i) => <div key={i} className="skel skel-nav" style={{ width: `${55 + ((i * 17) % 35)}%` }} />)}
+      </div>
+      <div className="skel-main">
+        <div className="skel skel-title" />
+        <div className="skel skel-sub" />
+        <div className="skel-stats">{[0, 1, 2, 3].map(i => <div key={i} className="skel skel-stat" />)}</div>
+        <div className="skel-grid"><div className="skel skel-card" /><div className="skel skel-card" /></div>
+        <p className="skel-label muted small">{label}</p>
+      </div>
+    </div>
+  )
+}
 
 export const LocationSelect = ({ value, onChange, includeQH = false, filter, allowAll }) => {
   const { db } = useData()

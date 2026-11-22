@@ -40,7 +40,7 @@ export default function MRP() {
       </Card>
 
       <Card title={`Planned orders — what to order and by when (${mrp.suggestions.length})`}>
-        {mrp.suggestions.length === 0 ? <Empty>No planned orders: stock plus open orders cover every requirement in the horizon.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Level</th><th className="num">Qty</th><th>Needed (week)</th><th className="num">Lead time</th><th>Order by</th><th>Action</th></tr></thead><tbody>
+        {mrp.suggestions.length === 0 ? <Empty icon="check" title="Everything is covered">Stock plus open orders cover every requirement in the horizon.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Level</th><th className="num">Qty</th><th>Needed (week)</th><th className="num">Lead time</th><th>Order by</th><th>Action</th></tr></thead><tbody>
           {mrp.suggestions.map((s, k) => <tr key={k}>
             <td>{s.item.name}<div className="small muted">{s.item.id} · {s.item.lot_rule}{s.item.lot_rule === 'FOQ' ? ` ${s.item.lot_qty}` : ''}</div></td><td>{s.level}</td>
             <td className="num"><b>{qtyFmt(s.qty, s.item.uom)}</b></td><td className="nowrap">{dshort(s.needDate)} (wk {s.week})</td><td className="num">{s.item.lead_time_days} d</td>

@@ -43,7 +43,7 @@ export default function Reports() {
         </tbody></table></Card>}
 
       {tab === 'low' && <Card title="Low stock with suggested order quantities and order-by dates" actions={<Link className="btn small" to="/purchasing?tab=replenish">Open replenishment</Link>}>
-        {policy.filter(p => p.belowRop).length === 0 ? <Empty>No items at or below reorder point.</Empty> :
+        {policy.filter(p => p.belowRop).length === 0 ? <Empty icon="check">No items at or below their reorder point.</Empty> :
           <table className="tbl"><thead><tr><th>Item</th><th className="num">On hand</th><th className="num">On order</th><th className="num">Committed</th><th className="num">ROP</th><th className="num">Suggested qty</th><th>Order by</th><th>Source</th></tr></thead><tbody>
             {policy.filter(p => p.belowRop).sort((a, b) => a.orderBy.localeCompare(b.orderBy)).map(p => <tr key={p.item.id}><td>{p.item.name}</td><td className="num">{qtyFmt(p.onHand, p.item.uom)}</td><td className="num">{num(p.onOrder, 1)}</td><td className="num">{num(p.committed, 1)}</td><td className="num">{num(p.rop, 1)}</td><td className="num"><b>{qtyFmt(p.suggest, p.item.uom)}</b></td>
               <td className={p.orderBy <= todayLima() ? 'neg' : ''}>{p.orderBy <= todayLima() ? 'Today' : dfmt(p.orderBy)}</td><td>{p.item.make_or_buy === 'Make' ? 'Make (work order)' : ix.suppliers.get(p.item.supplier_id)?.name}</td></tr>)}
