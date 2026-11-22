@@ -6,7 +6,10 @@
 -- =====================================================================
 create or replace function load_seed() returns void
 language plpgsql security definer set search_path = public as $seed$
-declare golive timestamptz := '2026-11-01 08:00:00-05';
+-- Go-live = the moment the data is (re)loaded: the workbook stock count becomes "today's" opening balance,
+-- so stock is always consistent no matter when the reset runs. Everything before it is history.
+declare golive timestamptz := now();
+        today_start timestamptz := date_trunc('day', now() at time zone 'America/Lima') at time zone 'America/Lima';
 begin
   if auth.uid() is not null and not is_staff() then raise exception 'Staff only'; end if;
 
@@ -200,7 +203,7 @@ begin
     ('CUS11', 'Pacific Cotton Trading SpA', 'Export buyer', 'Export', 'import@pacificcotton-demo.cl', '+56 2 2894 3310', 'Santiago', 'Chile', true, 'wholesale'),
     ('CUS12', 'Comercial Rosita – Stand Gamarra', 'Wholesale reseller', 'Wholesale', 'rosita.gamarra@mail-demo.pe', '+51 963 540 187', 'La Victoria, Lima', 'Peru', false, 'wholesale');
 
-  -- Opening stock (go-live snapshot, workbook Inventory_On_Hand as of 2026-11-01)
+  -- Opening stock (go-live snapshot: workbook Inventory_On_Hand count, taken as of the load day)
   insert into stock(item_id, location_id, qty) values
     ('FG01', 'LOC04', 34),
     ('FG01', 'LOC03', 52),
@@ -3100,6 +3103,20 @@ begin
     ('SO-2026-01130', 'FG10', 1, 1, 25.34, 0, 0.18, 12.14),
     ('SO-2026-01131', 'FG10', 1, 1, 25.34, 0, 0.18, 12.14),
     ('SO-2026-01131', 'FG12', 2, 2, 31.27, 0, 0.18, 15.64);
+  -- Fill the gap between the end of the real history (Oct 31) and go-live (the day this data is loaded):
+  -- replay the company's real sales from exactly 26 weeks earlier (same weekday), id suffixed '-R'.
+  insert into sales(id, kind, customer_id, location_id, status, channel, order_date, requested_date, fulfilled_at, closed_at, is_history, notes)
+  select s.id || '-R', s.kind, s.customer_id, s.location_id, s.status, s.channel, s.order_date + interval '182 days',
+         s.requested_date + 182, s.fulfilled_at + interval '182 days', s.closed_at + interval '182 days', true,
+         'Replay of real sale ' || s.id || ' (26 weeks earlier) to fill the Nov 1 – go-live gap'
+    from sales s
+   where s.is_history and s.fulfilled_at + interval '182 days' >= timestamptz '2026-11-01 00:00:00-05'
+     and s.fulfilled_at + interval '182 days' < today_start;
+  insert into sales_lines(sale_id, item_id, qty, qty_shipped, unit_price, discount_pct, tax_rate, unit_cost)
+  select l.sale_id || '-R', l.item_id, l.qty, l.qty_shipped, l.unit_price, l.discount_pct, l.tax_rate, l.unit_cost
+    from sales_lines l join sales r on r.id = l.sale_id || '-R'
+   order by l.id;
+
   -- Historical sales hit the P&L. Their stock left BEFORE the go-live count, so
   -- the cost side is posted against Opening Balance Equity instead of Inventory.
   insert into ledger(at, account, debit, credit, doc_type, doc_id, memo)

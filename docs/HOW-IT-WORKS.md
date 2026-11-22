@@ -27,7 +27,8 @@ The **Accounting Journal → Trial balance** proves debits = credits.
 * **Real:** 14 finished goods from the company's product sheet (names, colours, sizes, the barcodes the company already uses, SKUs) and their real stock count.
 * **Team workbook:** costs, prices, BOMs with scrap allowances, lead times, 7 suppliers (6 in Lima, 1 in China), 12 customers, 6 months of sales with Peruvian seasonality (Mother's Day, Fiestas Patrias, winter long sleeves).
 * **Generated:** 36 historical POs (supplier behaviour) and 34 historical work orders (scrap/rework), so the scorecard and production metrics have history to compute from.
-* **Go-live:** the Nov 1, 2026 stock count is the opening balance. Earlier sales are in the P&L, but their cost is posted to *Opening Balance Equity* because that stock was gone before the count. This is how real companies go live on an ERP.
+* **Go-live:** the company's stock count is the opening balance on the day the demo data is loaded (Settings → Reset demo data). Earlier sales are in the P&L, but their cost is posted to *Opening Balance Equity* because that stock was gone before the count. This is how real companies go live on an ERP.
+* **Filling the gap:** the real sales history ends Oct 31, 2026. On every reset, the real sales from exactly 26 weeks earlier (same weekday) are replayed to cover Nov 1 up to yesterday, so the dashboard and reports never show an empty recent period. Replayed sales have IDs ending in `-R`.
 
 ## Key formulas (all live)
 * **Weighted average cost:** new avg = (on-hand × old avg + received qty × receipt cost) ÷ (on-hand + received qty).

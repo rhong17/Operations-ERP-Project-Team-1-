@@ -267,7 +267,10 @@ S.append("""-- =================================================================
 -- =====================================================================
 create or replace function load_seed() returns void
 language plpgsql security definer set search_path = public as $seed$
-declare golive timestamptz := '2026-11-01 08:00:00-05';
+-- Go-live = the moment the data is (re)loaded: the workbook stock count becomes "today's" opening balance,
+-- so stock is always consistent no matter when the reset runs. Everything before it is history.
+declare golive timestamptz := now();
+        today_start timestamptz := date_trunc('day', now() at time zone 'America/Lima') at time zone 'America/Lima';
 begin
   if auth.uid() is not null and not is_staff() then raise exception 'Staff only'; end if;
 
@@ -295,7 +298,7 @@ S.append(values('items', ['id','ean','sku','variant_sku','name','name_en','item_
 S.append(values('bom', ['parent_id','component_id','qty_per','scrap_pct'], bom_rows))
 S.append(values('customers', ['id','name','type','channel','email','phone','city','country','igv_exempt','price_list'], cust_rows))
 
-S.append("\n  -- Opening stock (go-live snapshot, workbook Inventory_On_Hand as of 2026-11-01)")
+S.append("\n  -- Opening stock (go-live snapshot: workbook Inventory_On_Hand count, taken as of the load day)")
 S.append(values('stock', ['item_id','location_id','qty'], stock_rows))
 S.append("""  insert into inv_moves(at, item_id, location_id, qty, unit_cost, kind, doc_type, doc_id, reason)
     select golive, s.item_id, s.location_id, s.qty, i.avg_cost, 'opening', 'opening', 'OPENING', 'Go-live stock count'
@@ -311,7 +314,21 @@ S.append("""  insert into inv_moves(at, item_id, location_id, qty, unit_cost, ki
 S.append("\n  -- Sales history: real workbook Sales_History (May 1 – Oct 31, 2026)")
 S.append(values('sales', ['id','kind','customer_id','location_id','status','channel','order_date','requested_date','fulfilled_at','closed_at','is_history'], sale_rows))
 S.append(values('sales_lines', ['sale_id','item_id','qty','qty_shipped','unit_price','discount_pct','tax_rate','unit_cost'], line_rows))
-S.append("""  -- Historical sales hit the P&L. Their stock left BEFORE the go-live count, so
+S.append("""  -- Fill the gap between the end of the real history (Oct 31) and go-live (the day this data is loaded):
+  -- replay the company's real sales from exactly 26 weeks earlier (same weekday), id suffixed '-R'.
+  insert into sales(id, kind, customer_id, location_id, status, channel, order_date, requested_date, fulfilled_at, closed_at, is_history, notes)
+  select s.id || '-R', s.kind, s.customer_id, s.location_id, s.status, s.channel, s.order_date + interval '182 days',
+         s.requested_date + 182, s.fulfilled_at + interval '182 days', s.closed_at + interval '182 days', true,
+         'Replay of real sale ' || s.id || ' (26 weeks earlier) to fill the Nov 1 – go-live gap'
+    from sales s
+   where s.is_history and s.fulfilled_at + interval '182 days' >= timestamptz '2026-11-01 00:00:00-05'
+     and s.fulfilled_at + interval '182 days' < today_start;
+  insert into sales_lines(sale_id, item_id, qty, qty_shipped, unit_price, discount_pct, tax_rate, unit_cost)
+  select l.sale_id || '-R', l.item_id, l.qty, l.qty_shipped, l.unit_price, l.discount_pct, l.tax_rate, l.unit_cost
+    from sales_lines l join sales r on r.id = l.sale_id || '-R'
+   order by l.id;
+
+  -- Historical sales hit the P&L. Their stock left BEFORE the go-live count, so
   -- the cost side is posted against Opening Balance Equity instead of Inventory.
   insert into ledger(at, account, debit, credit, doc_type, doc_id, memo)
   select s.fulfilled_at, a.account, a.debit, a.credit, 'sale', s.id, 'Historical sale (pre go-live)'
