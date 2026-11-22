@@ -21,6 +21,7 @@ export default function Dashboard() {
     // one prioritised to-do list across modules
     const todo = [
       ...mrp.suggestions.filter(s => s.late).map(s => ({ key: 'm' + s.item.id + s.week, tone: 'red', tag: 'MRP · past due', text: `${s.action === 'Work order' ? 'Make' : 'Buy'} ${num(s.qty, 1)} ${s.item.name}`, when: 'order now', to: '/mrp' })),
+      ...db.work_orders.filter(w => ['planned', 'in_progress'].includes(w.status) && w.due_date < today).map(w => ({ key: w.id, tone: 'red', tag: 'Late WO', text: `${w.id} · ${num(w.qty_planned)} ${ix.items.get(w.item_id)?.name}`, when: `due ${dshort(w.due_date)}`, to: '/production' })),
       ...inbound.filter(p => p.expected_date < today).map(p => ({ key: p.id, tone: 'amber', tag: 'Late PO', text: `${p.id} · ${ix.suppliers.get(p.supplier_id)?.name}`, when: `due ${dshort(p.expected_date)}`, to: '/purchasing' })),
       ...openSO.filter(s => s.requested_date <= addDays(today, 7)).map(s => ({ key: s.id, tone: 'blue', tag: 'Ship soon', text: `${s.id} · ${ix.customers.get(s.customer_id)?.name}`, when: dshort(s.requested_date), to: '/sales' })),
       ...below.slice(0, 5).map(p => ({ key: 'r' + p.item.id, tone: 'amber', tag: 'Reorder', text: p.item.name, when: p.orderBy <= today ? 'today' : dshort(p.orderBy), to: '/purchasing?tab=replenish' })),

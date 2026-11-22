@@ -184,6 +184,21 @@ input[type=checkbox] { width: auto; }
 .toast.error { background: var(--red); }
 .ripple { position: fixed; right: 16px; bottom: 16px; width: min(440px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--panel); border: 2px solid var(--accent); border-radius: 12px; padding: 12px 14px; z-index: 60; box-shadow: 0 16px 50px rgba(0,0,0,.2); }
 .ripple-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.ripple-summary, .ripple-toggle { display: none; }
+/* The panel must never cover an open dialog's buttons (Issue materials, Complete, Fulfil…). */
+@media (min-width: 1280px) {
+  /* wide screens: dialog moves left, panel stays beside it */
+  body:has(.ripple) .modal-bg { padding-right: 480px; }
+}
+@media (max-width: 1279px) {
+  /* smaller screens: panel docks at the top as a one-line summary; "Details" expands it */
+  body:has(.modal-bg) .ripple { top: 12px; bottom: auto; max-height: 55vh; }
+  body:has(.modal-bg) .ripple-summary { display: block; margin-top: 2px; }
+  body:has(.modal-bg) .ripple-toggle { display: inline-flex; }
+  body:has(.modal-bg) .ripple:not(.expanded) .ripple-details { display: none; }
+  body:has(.ripple:not(.expanded)) .modal-bg { padding-top: 96px; }
+  body:has(.ripple:not(.expanded)) .modal { max-height: calc(100vh - 112px); }
+}
 .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-ink); font-weight: 700; }
 .live { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }

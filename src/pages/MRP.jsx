@@ -46,7 +46,7 @@ export default function MRP() {
             <td className="num"><b>{qtyFmt(s.qty, s.item.uom)}</b></td><td className="nowrap">{dshort(s.needDate)} (wk {s.week})</td><td className="num">{s.item.lead_time_days} d</td>
             <td>{s.late ? <><Badge tone="red">Past due</Badge> <span className="neg">{dfmt(s.orderBy)}</span></> : dfmt(s.orderBy)}</td>
             <td>{s.action === 'Work order'
-              ? <button className="btn small" onClick={() => setWo({ item_id: s.item.id, qty: Math.ceil(s.qty), notes: `MRP planned order, needed ${s.needDate}` })}>Create WO</button>
+              ? <button className="btn small" onClick={() => setWo({ item_id: s.item.id, qty: Math.ceil(s.qty), due_date: s.needDate, notes: `MRP planned order, needed ${s.needDate}` })}>Create WO</button>
               : <button className="btn small" onClick={() => setPo({ supplier_id: s.item.supplier_id, item_id: s.item.id, qty: s.qty, notes: `MRP planned order, needed ${s.needDate}` })}>Create PO</button>}</td>
           </tr>)}
         </tbody></table></div>}

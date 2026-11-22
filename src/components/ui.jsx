@@ -220,14 +220,26 @@ const FN_LABEL = {
 }
 export function RipplePanel() {
   const { ripple, setRipple, ix } = useData()
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => setExpanded(false), [ripple])
   if (!ripple || !ix) return null
   const dr = ripple.ledger.reduce((a, l) => a + Number(l.debit), 0), cr = ripple.ledger.reduce((a, l) => a + Number(l.credit), 0)
+  const balanced = Math.abs(dr - cr) < 0.005
+  // While a dialog is open on a smaller screen, the panel shrinks to this one-line summary at the top
+  // (see .ripple-summary in styles.css) so it never covers the dialog's buttons.
+  const summary = [ripple.moves.length ? `${ripple.moves.length} stock move${ripple.moves.length === 1 ? '' : 's'}` : null,
+    ripple.ledger.length ? `journal ${money(dr)} ${balanced ? '✓ balanced' : '⚠'}` : null].filter(Boolean).join(' · ')
   return (
-    <aside className="ripple">
+    <aside className={'ripple' + (expanded ? ' expanded' : '')}>
       <div className="ripple-head">
-        <div><div className="eyebrow">What just happened across the ERP</div><strong>{FN_LABEL[ripple.fn] || ripple.fn} {ripple.data?.id}</strong></div>
-        <button className="icon-btn" onClick={() => setRipple(null)} aria-label="Close">✕</button>
+        <div><div className="eyebrow">What just happened across the ERP</div><strong>{FN_LABEL[ripple.fn] || ripple.fn} {ripple.data?.id}</strong>
+          {summary && <div className="ripple-summary muted small">{summary}</div>}</div>
+        <div className="row gap">
+          <button className="btn small ripple-toggle" onClick={() => setExpanded(x => !x)}>{expanded ? 'Hide' : 'Details'}</button>
+          <button className="icon-btn" onClick={() => setRipple(null)} aria-label="Close">✕</button>
+        </div>
       </div>
+      <div className="ripple-details">
       {ripple.moves.length > 0 && <>
         <h3>Inventory (stock by location)</h3>
         <table className="tbl compact"><tbody>
@@ -242,10 +254,11 @@ export function RipplePanel() {
         <h3>Accounting journal (double entry)</h3>
         <table className="tbl compact"><thead><tr><th>Account</th><th className="num">Debit</th><th className="num">Credit</th></tr></thead><tbody>
           {ripple.ledger.map(l => <tr key={l.id}><td>{l.account}</td><td className="num">{Number(l.debit) ? money(l.debit) : ''}</td><td className="num">{Number(l.credit) ? money(l.credit) : ''}</td></tr>)}
-          <tr className="total"><td>Total {Math.abs(dr - cr) < 0.005 ? '✓ balanced' : '⚠'}</td><td className="num">{money(dr)}</td><td className="num">{money(cr)}</td></tr>
+          <tr className="total"><td>Total {balanced ? '✓ balanced' : '⚠'}</td><td className="num">{money(dr)}</td><td className="num">{money(cr)}</td></tr>
         </tbody></table>
       </>}
       <p className="muted small">Also updated automatically: on-hand by location, reorder suggestions, MRP plan, P&amp;L, inventory valuation and turnover — for every logged-in user.</p>
+      </div>
     </aside>
   )
 }
