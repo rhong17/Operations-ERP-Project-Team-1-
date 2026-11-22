@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
 import { supabase } from '../lib/supabase.js'
 import { Page, Card, Stat, DateRange, Tabs, useUsd } from '../components/ui.jsx'
-import { money, pct, num, profitAndLoss, todayLima, addDays, daysBetween, sum, groupBy } from '../lib/calc.js'
-
-const GO_LIVE = '2026-11-01'
+import { money, pct, num, profitAndLoss, todayLima, addDays, daysBetween, sum, groupBy, limaDate, dfmt } from '../lib/calc.js'
 
 export default function Finance() {
   const { db, ix, version } = useData()
@@ -15,18 +13,23 @@ export default function Finance() {
   const [totals, setTotals] = useState(null)
   const [invStart, setInvStart] = useState(null)
   const [invEnd, setInvEnd] = useState(null)
+  // Go-live = date of the opening stock count (the day the demo data was last loaded)
+  const goLive = useMemo(() => {
+    const at = (db.inv_moves || []).filter(m => m.kind === 'opening').map(m => m.at).sort()[0]
+    return at ? limaDate(at) : '2026-11-01'
+  }, [db.inv_moves])
 
   // re-query the ledger whenever anything changes anywhere (version bumps on every refresh)
   useEffect(() => {
     let stop = false
-    const startDay = addDays(from, -1) < GO_LIVE ? GO_LIVE : addDays(from, -1)   // no inventory on the books before go-live
+    const startDay = addDays(from, -1) < goLive ? goLive : addDays(from, -1)   // no inventory on the books before go-live
     Promise.all([
       supabase.rpc('ledger_totals', { p_from: from, p_to: to }),
       supabase.rpc('inventory_value_at', { p_date: startDay }),
       supabase.rpc('inventory_value_at', { p_date: to }),
     ]).then(([t, a, b]) => { if (!stop) { setTotals(t.data || []); setInvStart(Number(a.data)); setInvEnd(Number(b.data)) } })
     return () => { stop = true }
-  }, [from, to, version])
+  }, [from, to, version, goLive])
 
   const pl = totals ? profitAndLoss(totals) : null
   const days = daysBetween(from, to) + 1
@@ -50,7 +53,7 @@ export default function Finance() {
           <li><b>Inventory valuation</b> = on-hand quantity × weighted average cost, per location; plus work in process.</li>
           <li><b>Inventory turnover</b> = COGS for the period ÷ average inventory value <code>(start + end) ÷ 2</code>; annualised × 365 ÷ days. Days of inventory = 365 ÷ annual turns.</li>
         </ul>
-        <p className="small">Go-live note: the company's stock count on Nov 1, 2026 is the opening balance. Sales before that are real history for the P&amp;L, but their inventory left before the count, so their cost is posted against <i>Opening Balance Equity</i> (standard practice when an ERP goes live mid-year). For periods starting before go-live, the opening count is used as starting inventory.</p>
+        <p className="small">Go-live note: the company's stock count is the opening balance on the go-live date ({dfmt(goLive)}, the day the demo data was loaded). Sales before that are history for the P&amp;L — real workbook sales May 1 – Oct 31, plus a replay of those real sales from 26 weeks earlier to fill Nov 1 up to go-live, but their inventory left before the count, so their cost is posted against <i>Opening Balance Equity</i> (standard practice when an ERP goes live mid-year). For periods starting before go-live, the opening count is used as starting inventory.</p>
       </>}>
       <Card><DateRange from={from} to={to} onChange={(a, b) => { setFrom(a); setTo(b) }} /></Card>
       <div className="stats">
@@ -78,7 +81,7 @@ export default function Finance() {
       {tab === 'turn' && <Card title="Inventory turnover calculation">
         <table className="tbl" style={{ maxWidth: 620 }}><tbody>
           <tr><td>COGS in period ({days} days)</td><td className="num">{money(pl?.cogs)}</td></tr>
-          <tr><td>Inventory + WIP at start {from < GO_LIVE ? '(go-live count, Nov 1)' : `(end of ${addDays(from, -1)})`}</td><td className="num">{money(invStart)}</td></tr>
+          <tr><td>Inventory + WIP at start {from <= goLive ? `(go-live count, ${dfmt(goLive)})` : `(end of ${addDays(from, -1)})`}</td><td className="num">{money(invStart)}</td></tr>
           <tr><td>Inventory + WIP at end of {to}</td><td className="num">{money(invEnd)}</td></tr>
           <tr className="sub"><td>Average inventory</td><td className="num">{money(avgInv)}</td></tr>
           <tr className="sub"><td>Turnover for the period = COGS ÷ average inventory</td><td className="num">{num(turns, 2)}×</td></tr>

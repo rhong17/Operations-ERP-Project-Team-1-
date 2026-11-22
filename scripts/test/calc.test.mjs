@@ -74,7 +74,7 @@ try {
 test('ROP and EOQ match the workbook Calculations sheet (May 1 – Oct 31 window)', { skip: !db && 'local test DB not found' }, () => {
   const d = structuredClone(db)
   d.settings.find(s => s.key === 'demand_window_days').value = 184     // May 1 .. Oct 31
-  d.sales = d.sales.filter(s => s.is_history)                          // history only, as in the workbook
+  d.sales = d.sales.filter(s => s.is_history && !s.id.endsWith('-R'))  // real workbook history only (not the gap replay)
   const pol = inventoryPolicy(d, index(d), '2026-10-31')
   const fg02 = pol.find(p => p.item.id === 'FG02'), c01 = pol.find(p => p.item.id === 'C01')
   assert.equal(fg02.days, 158)
