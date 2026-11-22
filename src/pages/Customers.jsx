@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, Modal, Btn, Badge } from '../components/ui.jsx'
+import { Page, Card, Field, Modal, Btn, Badge, useOpenParam } from '../components/ui.jsx'
 import { money, sum, dt } from '../lib/calc.js'
 
 export default function Customers() {
   const { db, ix, call } = useData()
   const [edit, setEdit] = useState(null)
+  useOpenParam(id => { const c = db.customers.find(x => x.id === id); if (c) setEdit(c) })
   const stats = c => {
     const ss = db.sales.filter(s => s.customer_id === c.id && s.status !== 'cancelled')
     const rev = sum(ss.flatMap(s => ix.linesBySale.get(s.id) || []), l => l.qty_shipped * l.unit_price * (1 - l.discount_pct))

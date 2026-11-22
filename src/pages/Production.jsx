@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars } from '../components/ui.jsx'
+import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars, useOpenParam, Barcode, Icon } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, materialCheck, productionReport, todayLima, addDays, toLimaInput, fromLimaInput, groupBy, sum, limaDate } from '../lib/calc.js'
 import { Transfer } from './Inventory.jsx'
 import { NewPO } from './Purchasing.jsx'
@@ -33,6 +33,7 @@ function Orders() {
   const [filter, setFilter] = useState('open')
   const [creating, setCreating] = useState(false)
   const [openId, setOpenId] = useState(null)
+  useOpenParam(setOpenId)
   const today = todayLima()
   const list = db.work_orders.filter(w => filter === 'all' || (filter === 'open' ? ['planned', 'in_progress'].includes(w.status) : w.status === filter))
     .sort((a, b) => b.id.localeCompare(a.id))
@@ -44,7 +45,7 @@ function Orders() {
       <div className="spacer" /><button className="btn primary" onClick={() => setCreating(true)}>+ New work order</button>
     </div>
     <Card>
-      {list.length === 0 ? <Empty>No work orders here.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>WO</th><th>Item</th><th className="num">Qty started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th>Due</th><th>Start → finish</th><th className="num">Unit cost</th><th>Status</th></tr></thead><tbody>
+      {list.length === 0 ? <Empty icon="scissors" title={filter === 'open' ? 'No open work orders' : 'No work orders here'} action={<button className="btn primary small" onClick={() => setCreating(true)}>+ New work order</button>}>Create one here, or from a suggestion on the MRP page.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>WO</th><th>Item</th><th className="num">Qty started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th>Due</th><th>Start → finish</th><th className="num">Unit cost</th><th>Status</th></tr></thead><tbody>
         {list.map(w => <tr key={w.id} className={'click ' + (w.status === 'cancelled' ? 'dim' : '')} onClick={() => setOpenId(w.id)}>
           <td><b>{w.id}</b></td><td>{ix.items.get(w.item_id)?.name}</td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good ?? ''}</td><td className="num">{w.qty_scrap || ''}</td><td className="num">{w.qty_rework || ''}</td>
           <td className="nowrap">{dfmt(w.due_date)}</td><td className="small">{w.started_at ? dt(w.started_at) : ''}{w.finished_at && w.status === 'completed' ? ' → ' + dt(w.finished_at) : ''}</td>
@@ -126,11 +127,14 @@ function WODetail({ id, onClose }) {
   const canCancel = ['planned', 'in_progress'].includes(w.status)
   return (
     <Modal wide title={`Work order ${id} · ${item?.name}`} onClose={onClose} footer={<>
+      <button className="btn" onClick={() => window.print()} title="Print a one-page traveler for the workshop"><Icon name="printer" size={15} /> Print traveler</button>
+      <div className="spacer" />
       {canCancel && <><select value={cancelReason} onChange={e => setCancelReason(e.target.value)} style={{ width: 220 }}><option value="">Cancel reason…</option>{CANCEL_REASONS.map(r => <option key={r}>{r}</option>)}</select>
         <Btn kind="danger" disabled={!cancelReason} onClick={() => call('cancel_wo', { p_id: id, p_reason: cancelReason }, { success: r => `Cancelled${r.returned_value ? `, ${money(r.returned_value)} of components returned` : ''}` })}>Cancel WO</Btn></>}
       {w.status === 'planned' && <Btn kind="primary" onClick={() => call('issue_wo', { p_id: id }, { success: r => `Materials issued: ${money(r.material_cost)}` })}>Issue materials</Btn>}
       {w.status === 'in_progress' && <Btn kind="primary" onClick={() => setCompleting(true)}>Complete…</Btn>}
     </>}>
+      <Traveler w={w} item={item} comps={comps} issues={issues} />
       <div className="row gap wrap" style={{ marginBottom: 10 }}>
         <StatusBadge status={w.status} /><span>{w.qty_planned} units · make at {ix.locations.get(w.location_id)?.name} → {ix.locations.get(w.output_location_id)?.name} · due {dfmt(w.due_date)}</span>
         {w.cancel_reason && <Badge tone="red">{w.cancel_reason}</Badge>}
@@ -162,6 +166,46 @@ function WODetail({ id, onClose }) {
       {transfer && <Modal title="Transfer for this work order" onClose={() => setTransfer(null)}><Transfer preset={transfer} onDone={() => setTransfer(null)} /></Modal>}
       {buy && <NewPO preset={buy} onClose={() => setBuy(null)} onCreated={() => setBuy(null)} />}
     </Modal>
+  )
+}
+
+// One-page printout that travels with the batch through the workshop (print only; hidden on screen).
+function Traveler({ w, item, comps, issues }) {
+  const { ix } = useData()
+  const done = w.status === 'completed'
+  const reason = kind => issues.filter(i => i.kind === kind).map(i => `${i.qty} ${i.reason}`).join(', ')
+  return (
+    <div className="print-only traveler">
+      <div className="tr-head">
+        <div className="tr-brand"><div className="brand-logo">TM</div><div><b>TEXTILES MOVE</b><div className="tr-sub">Work order traveler · Taller de corte y confección</div></div></div>
+        <div className="tr-code"><Barcode value={w.id} height={40} width={1.6} /></div>
+      </div>
+      <table className="tr-info"><tbody>
+        <tr><th>Item</th><td colSpan={3}><b>{item?.name}</b><div className="tr-sub">{item?.name_es} · {item?.id} · {item?.ean}</div></td></tr>
+        <tr><th>Quantity to make</th><td><b>{w.qty_planned}</b> units</td><th>Due</th><td><b>{dfmt(w.due_date)}</b></td></tr>
+        <tr><th>Make at</th><td>{ix.locations.get(w.location_id)?.name}</td><th>Receive into</th><td>{ix.locations.get(w.output_location_id)?.name}</td></tr>
+        <tr><th>Status</th><td>{w.status.replace('_', ' ')}</td><th>Created</th><td>{dt(w.created_at)}</td></tr>
+        {w.notes && <tr><th>Notes</th><td colSpan={3}>{w.notes}</td></tr>}
+      </tbody></table>
+
+      <h3>1 · Materials to pick (bill of materials × {w.qty_planned}, incl. scrap allowance)</h3>
+      <table className="tr-tbl"><thead><tr><th>Component</th><th>Barcode</th><th className="num">Required</th><th className="num">Issued</th><th className="ck">Picked</th></tr></thead><tbody>
+        {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td>{it?.name}<div className="tr-sub">{it?.name_es}</div></td><td className="mono">{it?.ean}</td>
+          <td className="num">{qtyFmt(c.qty_required, it?.uom)}</td><td className="num">{Number(c.qty_issued) ? qtyFmt(c.qty_issued, it?.uom) : ''}</td><td className="ck">☐</td></tr> })}
+      </tbody></table>
+
+      <h3>2 · Operations</h3>
+      <table className="tr-tbl"><thead><tr><th>Step</th><th>Done by</th><th>Date / time</th><th className="ck">✓</th></tr></thead><tbody>
+        {['Cut panels', 'Sew', 'Finish & press', 'Quality check', 'Tag & bag'].map(op => <tr key={op}><td>{op}</td><td /><td /><td className="ck">☐</td></tr>)}
+      </tbody></table>
+
+      <h3>3 · Result</h3>
+      <table className="tr-tbl"><tbody>
+        <tr><th>Good units</th><td className="fill">{done ? w.qty_good : ''}</td><th>Scrapped</th><td className="fill">{done ? `${w.qty_scrap}${reason('scrap') ? ` (${reason('scrap')})` : ''}` : ''}</td></tr>
+        <tr><th>Reworked</th><td className="fill">{done ? `${w.qty_rework}${reason('rework') ? ` (${reason('rework')})` : ''}` : ''}</td><th>Supervisor sign-off</th><td className="fill" /></tr>
+      </tbody></table>
+      <p className="tr-sub">Scrap and rework need a reason code: Seam failure · Fabric defect · Cutting error · Machine issue. Enter results in the ERP under Production → {w.id} → Complete. Printed {dt(new Date())}.</p>
+    </div>
   )
 }
 
@@ -244,7 +288,7 @@ function Report() {
     <div className="grid g2">
       <Card title="Good units completed by month"><Bars rows={byMonth} format={v => num(v)} /></Card>
       <Card title="Quality issues by reason (Pareto)">
-        {r.reasons.length === 0 ? <Empty>No issues recorded.</Empty> : <table className="tbl compact"><tbody>{r.reasons.map(x => (
+        {r.reasons.length === 0 ? <Empty icon="check">No scrap or rework recorded in this period.</Empty> : <table className="tbl compact"><tbody>{r.reasons.map(x => (
           <tr key={x.reason + x.kind}><td>{x.reason}</td><td><Badge tone={x.kind === 'scrap' ? 'red' : 'amber'}>{x.kind}</Badge></td><td style={{ width: '40%' }}><div className="hbar"><div style={{ width: `${(x.qty / r.reasons[0].qty) * 100}%` }} /></div></td><td className="num">{x.qty}</td></tr>))}</tbody></table>}
       </Card>
     </div>

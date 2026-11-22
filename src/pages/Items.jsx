@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, Modal, Btn, Badge, Barcode } from '../components/ui.jsx'
+import { Page, Card, Field, Modal, Btn, Badge, Barcode, useOpenParam } from '../components/ui.jsx'
 import { money, num, qtyFmt, inventoryPolicy, effQty, sum } from '../lib/calc.js'
 
 export default function Items() {
@@ -8,6 +8,7 @@ export default function Items() {
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [edit, setEdit] = useState(null)
+  useOpenParam(id => { const it = db.items.find(i => i.id === id); if (it) setEdit(it) })
   const [bom, setBom] = useState(null)
   const policy = useMemo(() => new Map(inventoryPolicy(db, ix).map(p => [p.item.id, p])), [db, ix])
   const list = db.items.filter(i => (!type || i.item_type === type) && (!q || (i.name + (i.name_es || '') + i.ean + i.id + (i.sku || '')).toLowerCase().includes(q.toLowerCase())))

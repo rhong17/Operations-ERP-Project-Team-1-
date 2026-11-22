@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, supplierScorecard, inventoryPolicy, todayLima, addDays, daysBetween, sum, setting, groupBy } from '../lib/calc.js'
 import { NewWO } from './Production.jsx'
 
@@ -31,6 +31,7 @@ function POList() {
   const [filter, setFilter] = useState('open')
   const [creating, setCreating] = useState(false)
   const [openId, setOpenId] = useState(null)
+  useOpenParam(setOpenId)
   const list = db.purchase_orders.filter(p => filter === 'all' || (filter === 'open' ? ['draft', 'sent', 'partial'].includes(p.status) : p.status === filter)).sort((a, b) => b.id.localeCompare(a.id))
   const lastRec = groupBy(db.po_receipts, 'po_id')
   return <>
@@ -40,7 +41,7 @@ function POList() {
       </select><div className="spacer" /><button className="btn primary" onClick={() => setCreating(true)}>+ New purchase order</button>
     </div>
     <Card>
-      {list.length === 0 ? <Empty>No purchase orders here.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>PO</th><th>Supplier</th><th>Items</th><th>Sent</th><th>Expected</th><th>Received</th><th className="num">Value</th><th>Status</th></tr></thead><tbody>
+      {list.length === 0 ? <Empty icon="truck" title="No purchase orders here" action={<button className="btn primary small" onClick={() => setCreating(true)}>+ New purchase order</button>}>Create one here, or from the Replenishment tab or an MRP suggestion.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>PO</th><th>Supplier</th><th>Items</th><th>Sent</th><th>Expected</th><th>Received</th><th className="num">Value</th><th>Status</th></tr></thead><tbody>
         {list.map(p => {
           const recs = lastRec.get(p.id) || []
           const last = recs.map(r => r.received_date).sort().at(-1)
@@ -191,7 +192,7 @@ function Replenishment() {
       <p className="muted small">Inventory position = on hand (excl. Quality Hold) + on order (open POs / work orders) − committed to open sales orders.</p>
     </Card>
     <Card title={only ? 'Items at or below their reorder point' : 'All items'} actions={<label className="row gap small"><input type="checkbox" checked={only} onChange={e => setOnly(e.target.checked)} />Only items needing an order</label>}>
-      {list.length === 0 ? <Empty>Nothing needs ordering right now.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th className="num">d / day</th><th className="num">LT</th><th className="num">Safety stock</th><th className="num">ROP</th><th className="num">Position</th><th className="num">EOQ</th><th className="num">Suggested qty</th><th>Order by</th><th className="num">Periodic: order-up-to / qty</th><th></th></tr></thead><tbody>
+      {list.length === 0 ? <Empty icon="check" title="All stocked up">Nothing is at or below its reorder point right now.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th className="num">d / day</th><th className="num">LT</th><th className="num">Safety stock</th><th className="num">ROP</th><th className="num">Position</th><th className="num">EOQ</th><th className="num">Suggested qty</th><th>Order by</th><th className="num">Periodic: order-up-to / qty</th><th></th></tr></thead><tbody>
         {list.map(r => <tr key={r.item.id}>
           <td><button className="btn ghost small" onClick={() => setExplain(r)}>{r.item.name}</button><div className="small muted">{r.item.make_or_buy === 'Make' ? 'made in-house' : ix.suppliers.get(r.item.supplier_id)?.name}</div></td>
           <td className="num">{num(r.d, 2)}</td><td className="num">{r.LT} d</td><td className="num">{num(r.ss, 1)}</td><td className="num"><b>{num(r.rop, 1)}</b></td>

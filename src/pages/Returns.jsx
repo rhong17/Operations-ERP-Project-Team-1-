@@ -117,10 +117,10 @@ function ReturnHistory() {
   const list = [...db.returns].sort((a, b) => b.at.localeCompare(a.at))
   return <>
     <Card title="Returns by reason code">
-      {byReason.length ? <table className="tbl compact"><tbody>{byReason.map(r => <tr key={r.reason}><td>{r.reason}</td><td>{r.quality ? <Badge tone="red">quality</Badge> : <Badge>resellable</Badge>}</td><td className="num">{r.qty} units</td></tr>)}</tbody></table> : <Empty>No returns yet.</Empty>}
+      {byReason.length ? <table className="tbl compact"><tbody>{byReason.map(r => <tr key={r.reason}><td>{r.reason}</td><td>{r.quality ? <Badge tone="red">quality</Badge> : <Badge>resellable</Badge>}</td><td className="num">{r.qty} units</td></tr>)}</tbody></table> : <Empty icon="inbox">No returns yet.</Empty>}
     </Card>
     <Card title="All returns and exchanges">
-      {list.length === 0 ? <Empty>No returns yet.</Empty> : <table className="tbl"><thead><tr><th>Return</th><th>When</th><th>Original</th><th>Items</th><th className="num">Refund</th><th>Exchange sale</th><th className="num">Net</th></tr></thead><tbody>
+      {list.length === 0 ? <Empty icon="inbox">No returns yet.</Empty> : <table className="tbl"><thead><tr><th>Return</th><th>When</th><th>Original</th><th>Items</th><th className="num">Refund</th><th>Exchange sale</th><th className="num">Net</th></tr></thead><tbody>
         {list.map(r => <tr key={r.id}><td><b>{r.id}</b> <Badge tone={r.kind === 'exchange' ? 'blue' : 'grey'}>{r.kind}</Badge></td><td className="nowrap">{dt(r.at)}</td><td>{r.sale_id}</td>
           <td className="wrap-cell">{(linesBy.get(r.id) || []).map(l => `${l.qty}× ${ix.items.get(l.item_id)?.name} (${l.reason})`).join('; ')}</td>
           <td className="num">{money(r.refund_total)}</td><td>{r.exchange_sale_id || ''}</td><td className="num">{r.kind === 'exchange' ? money(r.net_due) : ''}</td></tr>)}
@@ -135,7 +135,7 @@ function QualityHold() {
   return (
     <Card title="Items in Quality Hold">
       <p className="muted">Defective returns wait here. <b>Rework</b> moves them back to sellable stock after fixing; <b>Scrap</b> writes them off (an inventory adjustment with a reason, expensed in the P&amp;L).</p>
-      {rows.length === 0 ? <Empty>Nothing on hold.</Empty> : <table className="tbl"><thead><tr><th>Item</th><th className="num">Qty</th><th className="num">Value</th><th></th></tr></thead><tbody>
+      {rows.length === 0 ? <Empty icon="check">Nothing is waiting in Quality Hold.</Empty> : <table className="tbl"><thead><tr><th>Item</th><th className="num">Qty</th><th className="num">Value</th><th></th></tr></thead><tbody>
         {rows.map(s => { const it = ix.items.get(s.item_id); return <tr key={s.item_id}><td>{it?.name}</td><td className="num">{qtyFmt(s.qty)}</td><td className="num">{money(s.qty * it.avg_cost)}</td>
           <td className="row gap">
             <Btn small onClick={() => call('transfer_stock', { p_item: s.item_id, p_from: s.location_id, p_to: 'LOC03', p_qty: s.qty, p_note: 'Reworked after quality hold' }, { success: 'Reworked units moved to finished-goods warehouse' })}>Rework → FG warehouse</Btn>

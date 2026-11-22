@@ -2,7 +2,8 @@ import { Component, useEffect, useState } from 'react'
 import { HashRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { supabase, configured } from './lib/supabase.js'
 import { DataProvider, useData } from './lib/data.jsx'
-import { Toasts, RipplePanel, LiveDot } from './components/ui.jsx'
+import { Toasts, RipplePanel, LiveDot, LoadingScreen } from './components/ui.jsx'
+import { QuickSearch, QuickSearchButton } from './components/QuickSearch.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
 import SalesOrders from './pages/SalesOrders.jsx'
@@ -47,9 +48,9 @@ export default function App() {
   }, [session])
 
   if (!configured) return <NotConfigured />
-  if (session === undefined) return <div className="auth">Loading…</div>
+  if (session === undefined) return <LoadingScreen label="Loading…" />
   if (!session) return <Login />
-  if (!profile) return <div className="auth">Loading your profile…</div>
+  if (!profile) return <LoadingScreen label="Loading your profile…" />
   if (profile.role === 'missing') return <div className="auth"><div className="auth-card"><h1>Profile not found</h1><p>Your login exists but has no ERP profile. Ask a teammate to re-run <code>02_logic.sql</code>, then sign up again.</p><button className="btn" onClick={() => supabase.auth.signOut()}>Sign out</button></div></div>
 
   return (
@@ -70,13 +71,15 @@ const STAFF_NAV = [
   ['Master data', [['/items', 'Items & BOMs'], ['/customers', 'Customers'], ['/settings', 'Settings & Users'], ['/about', 'About this system']]],
 ]
 
+const STAFF_PAGES = STAFF_NAV.flatMap(([, links]) => links)
+
 function Shell({ profile }) {
   const { db, error, isStaff, setRipple } = useData()
   const [menu, setMenu] = useState(false)
   const loc = useLocation()
   useEffect(() => { setMenu(false); setRipple(null) }, [loc.pathname, setRipple])
   if (error && !db) return <div className="auth"><div className="auth-card"><h1>Can't load data</h1><p className="error-text">{error}</p><p>If this is a new Supabase project, run the three SQL files first (see <b>docs/SETUP.md</b>).</p><button className="btn" onClick={() => supabase.auth.signOut()}>Sign out</button></div></div>
-  if (!db) return <div className="auth">Loading ERP data…</div>
+  if (!db) return <LoadingScreen />
 
   const counts = {}
   if (isStaff) {
@@ -106,10 +109,12 @@ function Shell({ profile }) {
       <div className="main">
         <header className="topbar">
           <button className="btn small menu-btn" onClick={() => setMenu(!menu)}>☰ Menu</button>
+          {isStaff && <QuickSearchButton />}
           <LiveDot />
           <span className="who">{profile.full_name || profile.email} · <b>{isStaff ? 'Staff' : 'Customer'}</b></span>
           <button className="btn small" onClick={() => supabase.auth.signOut()}>Sign out</button>
         </header>
+        {isStaff && <QuickSearch pages={STAFF_PAGES} />}
         <PageGuard key={loc.pathname}>
         {isStaff ? (
           <Routes>
