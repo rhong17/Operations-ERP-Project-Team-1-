@@ -540,8 +540,14 @@ begin
   insert into work_orders(id, item_id, qty_planned, location_id, output_location_id, status, due_date, notes)
   values (v_id, v_item.id, v_qty, coalesce(nullif(p->>'location_id',''),'LOC02'), coalesce(nullif(p->>'output_location_id',''),'LOC03'),
           'planned', coalesce(nullif(p->>'due_date','')::date, current_date + v_item.lead_time_days), p->>'notes');
+  -- BOM qty x quantity + scrap allowance. Fabric (kg) and thread (cones) can be partial;
+  -- countable items (labels, bags, boxes, tees) are rounded UP to whole units.
   insert into wo_components(wo_id, item_id, qty_required)
-  select v_id, component_id, round(v_qty * qty_per * (1 + scrap_pct), 4) from bom where parent_id = v_item.id;
+  select v_id, b.component_id,
+         case when c.uom in ('kg','cone') then round(v_qty * b.qty_per * (1 + b.scrap_pct), 4)
+              else ceil(round(v_qty * b.qty_per * (1 + b.scrap_pct), 4)) end
+    from bom b join items c on c.id = b.component_id
+   where b.parent_id = v_item.id;
   return jsonb_build_object('id', v_id);
 end $$;
 

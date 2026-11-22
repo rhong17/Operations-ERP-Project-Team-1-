@@ -59,6 +59,7 @@ input[type=checkbox] { width: auto; }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 22px; }
 .error-text { color: var(--red); }
+.warn-text { color: #a15c00; font-weight: 500; }
 .pos { color: var(--green); } .neg { color: var(--red); }
 
 /* layout */
