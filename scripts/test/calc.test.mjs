@@ -126,3 +126,21 @@ test('Allocation: two open orders cannot both claim the same stock', async () =>
   assert.equal(a.committedOf('T'), 60)
   assert.equal(a.freeAt('T', 'L1'), 0)
 })
+
+test('Returns are subtracted from sales totals on the return date (matches the P&L)', async () => {
+  const { salesLinesInRange, salesByPeriod } = await import('../../src/lib/calc.js')
+  const db = {
+    settings: [], locations: [{ id: 'L1', is_quality_hold: false }], items: [{ id: 'T', active: true }], stock: [], bom: [],
+    purchase_orders: [], po_lines: [], work_orders: [],
+    sales: [{ id: 'P1', kind: 'POS', status: 'completed', customer_id: 'C', order_date: '2026-11-10T17:00:00Z', fulfilled_at: '2026-11-10T17:00:00Z' }],
+    sales_lines: [{ id: 1, sale_id: 'P1', item_id: 'T', qty: 3, qty_shipped: 3, qty_returned: 1, unit_price: 20, discount_pct: 0.1, unit_cost: 8 }],
+    returns: [{ id: 'R1', sale_id: 'P1', at: '2026-11-12T17:00:00Z' }],
+    return_lines: [{ id: 1, return_id: 'R1', sale_line_id: 1, item_id: 'T', qty: 1, unit_price: 18, unit_cost: 8 }],
+  }
+  const rows = salesLinesInRange(db, index(db), '2026-11-01', '2026-11-30')
+  assert.equal(Math.round(rows.reduce((a, r) => a + r.revenue, 0) * 100) / 100, 36)   // 3 x 18 - 1 x 18
+  assert.equal(rows.reduce((a, r) => a + r.cost, 0), 16)                             // 3 x 8 - 1 x 8
+  const onlySaleWeek = salesLinesInRange(db, index(db), '2026-11-10', '2026-11-10')
+  assert.equal(onlySaleWeek.reduce((a, r) => a + r.revenue, 0), 54)                  // return falls on the 12th
+  assert.equal(salesByPeriod(rows, 'month')[0].orders, 1)                            // a return is not an extra order
+})

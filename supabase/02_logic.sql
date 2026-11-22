@@ -202,16 +202,32 @@ begin
 end $$;
 
 -- 11. CUSTOMER PORTAL: a logged-in customer places an order for pickup
+-- Stock that is NOT already promised to open sales orders, per item and location
+-- (on hand minus the open quantity of "Order Placed" orders shipping from there).
+-- Customers can't read other customers' orders, so the portal asks the database for this number.
+create or replace function free_stock() returns table(item_id text, location_id text, qty numeric)
+language sql stable security definer set search_path = public as $$
+  select s.item_id, s.location_id,
+         greatest(0, s.qty - coalesce((
+           select sum(l.qty - l.qty_shipped) from sales_lines l join sales o on o.id = l.sale_id
+            where o.kind = 'SO' and o.status = 'placed' and o.location_id = s.location_id and l.item_id = s.item_id), 0))
+    from stock s join locations lo on lo.id = s.location_id
+   where not lo.is_quality_hold and auth.uid() is not null
+$$;
+revoke execute on function free_stock() from public, anon;
+grant execute on function free_stock() to authenticated;
+
 create or replace function place_pickup_order(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare v_cust text := my_customer_id(); r record; v_have numeric;
 begin
   if v_cust is null then raise exception 'This login is not linked to a customer account'; end if;
-  for r in select * from jsonb_to_recordset(p->'lines') as x(item_id text, qty numeric)
+  for r in select x.item_id, sum(x.qty) qty from jsonb_to_recordset(p->'lines') as x(item_id text, qty numeric) group by x.item_id
   loop
-    select coalesce(sum(qty),0) into v_have from stock where item_id = r.item_id and location_id = p->>'location_id';
+    -- only stock that isn't already promised to other customers' orders can be picked up
+    select coalesce(sum(f.qty),0) into v_have from free_stock() f where f.item_id = r.item_id and f.location_id = p->>'location_id';
     if r.qty > v_have then
-      raise exception 'Only % of "%" available at that location', trim_scale(round(v_have, 3)), (select coalesce(name_en, name) from items where id = r.item_id);
+      raise exception 'Only % of "%" available at that location (the rest is reserved for other orders)', trim_scale(round(v_have, 3)), (select coalesce(name_en, name) from items where id = r.item_id);
     end if;
   end loop;
   -- customers cannot set their own prices

@@ -450,6 +450,18 @@ export function salesLinesInRange(db, ix, from, to) {
       out.push({ sale: s, line: l, date: d, qty: q, revenue: net, cost: q * Number(l.unit_cost || 0) })
     }
   }
+  // Returns count as negative sales on the day of the return — the same way the P&L
+  // posts them (Sales Returns, COGS reversed) — so Dashboard, Reports and Financials agree.
+  const lineById = new Map((db.sales_lines || []).map(l => [l.id, l]))
+  const retById = new Map((db.returns || []).map(r => [r.id, r]))
+  for (const rl of db.return_lines || []) {
+    const ret = retById.get(rl.return_id), line = lineById.get(rl.sale_line_id), sale = ret && ix.sales.get(ret.sale_id)
+    if (!ret || !line || !sale) continue
+    const d = limaDate(ret.at)
+    if (d < from || d > to) continue
+    const q = Number(rl.qty)
+    out.push({ sale, line, date: d, qty: -q, revenue: -q * Number(rl.unit_price), cost: -q * Number(rl.unit_cost || 0), isReturn: true })
+  }
   return out
 }
 
@@ -458,7 +470,7 @@ export function salesByPeriod(rows, grain = 'week') {
   for (const r of rows) {
     const k = grain === 'day' ? r.date : grain === 'month' ? r.date.slice(0, 7) + '-01' : mondayOf(r.date)
     const x = m.get(k) || { period: k, revenue: 0, cost: 0, units: 0, orders: new Set() }
-    x.revenue += r.revenue; x.cost += r.cost; x.units += r.qty; x.orders.add(r.sale.id); m.set(k, x)
+    x.revenue += r.revenue; x.cost += r.cost; x.units += r.qty; if (!r.isReturn) x.orders.add(r.sale.id); m.set(k, x)
   }
   return [...m.values()].map(x => ({ ...x, orders: x.orders.size })).sort((a, b) => a.period.localeCompare(b.period))
 }

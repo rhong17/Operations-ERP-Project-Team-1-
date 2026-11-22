@@ -418,6 +418,11 @@ S.append(f"""
     ('PO-{po_n+3:05d}','C10',30,9.5),
     ('PO-{po_n+4:05d}','C11',2000,0.15);
   insert into supplier_payments(po_id, amount, paid_date) values ('PO-{po_n+2:05d}', 540, current_date - 27);
+  -- That advance was paid before go-live: record it as an opening debit to Accounts Payable
+  -- (money already paid to the supplier), so the payables balance = goods received - payments.
+  insert into ledger(at, account, debit, credit, doc_type, doc_id, memo) values
+    (golive, 'Accounts Payable', 540, 0, 'opening', 'OPENING-AP', 'Advance paid to supplier before go-live (PO-{po_n+2:05d})'),
+    (golive, 'Opening Balance Equity', 0, 540, 'opening', 'OPENING-AP', 'Advance paid to supplier before go-live (PO-{po_n+2:05d})');
   update doc_counters set n = {po_n + 4} where prefix = 'PO';
 
   -- A planned work order (scheduled receipt for a parent item)
