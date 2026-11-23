@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, useOpenParam } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, useOpenParam, Steps, userName } from '../components/ui.jsx'
 import { money, qtyFmt, dfmt, dt, etaFor, onOrder, setting, todayLima, addDays, round, allocations } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
@@ -93,6 +93,16 @@ export function OrderDetail({ id, onClose }) {
   const alloc = allocations(db, ix)
   const tot = lines.reduce((a, l) => { const n = l.qty * l.unit_price * (1 - l.discount_pct); return { net: a.net + n, tax: a.tax + n * l.tax_rate } }, { net: 0, tax: 0 })
   const returns = db.returns.filter(r => r.sale_id === id)
+  const shipBy = userName(db, db.inv_moves.find(m => m.doc_id === id && m.kind === 'sale')?.user_id)
+  const anyShipped = lines.some(l => Number(l.qty_shipped) > 0)
+  const steps = s.kind === 'POS'
+    ? [{ label: 'Sold at the store', at: dt(s.order_date), by: userName(db, s.created_by), state: 'done' },
+       ...(returns.length ? [{ label: 'Returned', at: dt(returns[returns.length - 1].at), by: userName(db, returns[returns.length - 1].created_by), state: 'done' }] : [])]
+    : [{ label: 'Order placed', at: s.is_history ? '' : dt(s.order_date), by: userName(db, s.created_by), state: 'done' },
+       ...(s.status === 'cancelled' ? [{ label: 'Cancelled', at: s.cancel_reason || '', state: 'cancelled' }] : [
+         { label: s.status === 'placed' && anyShipped ? 'Partly shipped' : 'Fulfilled', at: s.fulfilled_at ? dt(s.fulfilled_at) : `requested ${dfmt(s.requested_date)}`, by: shipBy,
+           state: ['fulfilled', 'closed'].includes(s.status) ? 'done' : 'current' },
+         { label: 'Closed', at: s.closed_at ? dt(s.closed_at) : '', state: s.status === 'closed' ? 'done' : s.status === 'fulfilled' ? 'current' : 'todo' }])]
   return (
     <Modal wide title={`${s.kind === 'POS' ? 'Sale' : 'Sales order'} ${id}`} onClose={onClose}
       footer={s.status === 'placed' ? <>
@@ -102,6 +112,7 @@ export function OrderDetail({ id, onClose }) {
         {!lines.some(l => l.qty_shipped > 0) && <><input placeholder="Cancel reason" value={reason} onChange={e => setReason(e.target.value)} style={{ width: 170 }} />
           <Btn kind="danger" disabled={!reason} onClick={() => call('cancel_sales_order', { p_id: id, p_reason: reason }, { success: 'Order cancelled' })}>Cancel order</Btn></>}
       </> : s.status === 'fulfilled' ? <Btn kind="primary" onClick={() => call('close_sales_order', { p_id: id }, { success: 'Order closed' })}>Close order</Btn> : null}>
+      <Steps steps={steps} />
       <div className="row gap wrap" style={{ marginBottom: 10 }}>
         <StatusBadge status={s.status} /><span>{ix.customers.get(s.customer_id)?.name}</span>
         <span className="muted">· ordered {dt(s.order_date)} · requested {dfmt(s.requested_date)}{s.fulfilled_at ? ` · fulfilled ${dt(s.fulfilled_at)}` : ''}</span>

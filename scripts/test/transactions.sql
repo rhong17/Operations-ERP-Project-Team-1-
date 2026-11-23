@@ -211,6 +211,7 @@ select create_wo('{"item_id":"FG02","qty":120}') ->> 'id' as wo4 \gset
 select pg_temp.ok((select qty_required from wo_components where wo_id = :'wo4' and item_id = 'C11') = 122, '120 tees need 122 brand labels (121.2 rounded up)');
 select pg_temp.ok((select qty_required from wo_components where wo_id = :'wo4' and item_id = 'C01') = 24.624, 'fabric keeps decimals (24.624 kg)');
 select pg_temp.ok((select count(*) from wo_components c join items i on i.id = c.item_id where i.uom not in ('kg','cone') and c.qty_required <> trunc(c.qty_required) and c.wo_id >= :'wo4') = 0, 'no fractional labels, bags or boxes');
+select pg_temp.ok((select count(*) from wo_components c join items i on i.id = c.item_id join work_orders w on w.id = c.wo_id where not w.is_history and i.uom not in ('kg','cone') and c.qty_required <> trunc(c.qty_required)) = 0, 'seeded open work order also uses whole units');
 
 select pg_temp.ok(abs((select sum(credit)-sum(debit) from ledger where account='Accounts Payable')
   - ((select coalesce(sum(qty*unit_cost),0) from po_receipts) - (select coalesce(sum(amount),0) from supplier_payments))) < 0.01,

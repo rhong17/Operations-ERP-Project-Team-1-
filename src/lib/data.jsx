@@ -29,6 +29,17 @@ async function fetchAll(table) {
 const DataCtx = createContext(null)
 export const useData = () => useContext(DataCtx)
 
+// Where each document type opens (used by the "Open" button on notifications)
+export function docLink(id) {
+  if (typeof id !== 'string') return null
+  if (id.startsWith('WO-')) return `/production?open=${id}`
+  if (id.startsWith('SO-') || id.startsWith('POS-')) return `/sales?open=${id}`
+  if (id.startsWith('PO-')) return `/purchasing?tab=pos&open=${id}`
+  if (id.startsWith('RT-')) return '/returns'
+  if (id.startsWith('TR-') || id.startsWith('ADJ-')) return '/inventory?tab=moves'
+  return null
+}
+
 export function DataProvider({ profile, children }) {
   const [db, setDb] = useState(null)
   const [error, setError] = useState(null)
@@ -40,10 +51,11 @@ export function DataProvider({ profile, children }) {
   const timer = useRef(null)
   const isStaff = profile?.role === 'staff'
 
-  const toast = useCallback((msg, tone = 'ok') => {
+  // to = optional link shown as an "Open" button on the notification
+  const toast = useCallback((msg, tone = 'ok', to = null) => {
     const id = Math.random()
-    setToasts(t => [...t, { id, msg, tone }])
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), tone === 'error' ? 9000 : 4500)
+    setToasts(t => [...t, { id, msg, tone, to }])
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), tone === 'error' ? 9000 : to ? 7000 : 4500)
   }, [])
 
   const reload = useCallback(async () => {
@@ -77,7 +89,7 @@ export function DataProvider({ profile, children }) {
     const [gl0, mv0] = isStaff && showRipple ? await Promise.all([maxId('ledger'), maxId('inv_moves')]) : [0, 0]
     const { data, error } = await supabase.rpc(fn, args)
     if (error) { toast(error.message, 'error'); return null }
-    if (success) toast(typeof success === 'function' ? success(data) : success)
+    if (success) toast(typeof success === 'function' ? success(data) : success, 'ok', docLink(data?.id))
     await reload()
     if (isStaff && showRipple) {
       const [mv, gl] = await Promise.all([
