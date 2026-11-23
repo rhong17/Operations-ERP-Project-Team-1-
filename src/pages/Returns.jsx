@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, CameraScanner, ItemName, Icon } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, CameraScanner, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, setting, round, groupBy, sum } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
@@ -55,7 +55,7 @@ export default function Returns() {
           <div className="row gap wrap">
             <input style={{ maxWidth: 260 }} list="recent-sales" placeholder="Ticket / order number, e.g. POS-00001" value={saleId} onChange={e => { setSaleId(e.target.value); setRows({}); setExch([]) }} />
             <datalist id="recent-sales">{recentSales.map(s => <option key={s.id} value={s.id}>{ix.customers.get(s.customer_id)?.name} · {dt(s.order_date)}</option>)}</datalist>
-            <button className="btn" onClick={() => setCam(true)}><Icon name="camera" size={15} /> Scan ticket</button>
+            <button className="btn" onClick={() => setCam(true)}>📷 Scan ticket</button>
             {sale && <span className="muted">{ix.customers.get(sale.customer_id)?.name} · {dt(sale.order_date)} · {ix.locations.get(sale.location_id)?.name}</span>}
             {saleId && !sale && <span className="error-text">Not found</span>}
           </div>

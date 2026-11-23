@@ -26,8 +26,8 @@
   --red: #a8372f; --red-soft: #f8e6e3;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(26,32,81,.04);
-  --font-body: 'Barlow', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-head: 'Barlow Semi Condensed', 'Barlow', sans-serif;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-head: 'Archivo', 'IBM Plex Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
   font-family: var(--font-body);
   color: var(--ink);
@@ -468,100 +468,60 @@ kbd { font: 600 11px/1 var(--font-mono); color: var(--muted); background: var(--
 @media print { .steps { display: none; } }
 
 /* =====================================================================
-   TEXTILES MOVE HOUSE STYLE (v2 — "plant floor ERP")
-   Goal: look like dependable industrial business software, not a template.
+   TEXTILES MOVE HOUSE STYLE
    Each numbered section can be deleted on its own to undo that change.
    ===================================================================== */
 
-/* 1. Typography: Barlow (industrial grotesque, signage-like) for text,
-      Barlow Semi Condensed for headings and figures, Plex Mono for codes.
-      Normal-case headings — no shouty uppercase eyebrows. */
-:root { font-size: 14.5px; letter-spacing: .005em; }
-h1, h2, h3, .stat-value, .modal-head h2, .tbl th, .tabs button, .brand strong, .nav-group { font-family: var(--font-head); }
-.page-head h1 { font-weight: 700; font-size: 30px; letter-spacing: -.005em; line-height: 1.1; }
-.page-head p { font-size: 14px; }
-.card-head { border-bottom: 1px solid var(--line); margin: -4px -22px 14px; padding: 0 22px 10px; }
-.card-head h2 { font-weight: 700; font-size: 17px; letter-spacing: 0; color: var(--brand); }
-.modal-head h2 { font-weight: 700; font-size: 19px; }
-h3 { font-weight: 700; font-size: 13.5px; text-transform: none; letter-spacing: 0; color: var(--brand); border-bottom: 1px solid var(--line); padding-bottom: 5px; }
-.tabs button { font-weight: 600; font-size: 15px; }
+/* 1. Typography: Archivo (company website) for headings and big numbers,
+      IBM Plex Sans for text, IBM Plex Mono for document numbers and codes */
+h1, h2, h3, .stat-value, .brand strong, .modal-head h2, .nav-group, .tbl th, .tabs button { font-family: var(--font-head); }
+.page-head h1 { font-weight: 800; font-size: 27px; text-transform: uppercase; letter-spacing: .005em; line-height: 1.1; }
+.page-head p { font-size: 13.5px; }
+.card-head h2 { font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--brand); }
+.modal-head h2 { font-weight: 700; font-size: 16.5px; letter-spacing: .005em; }
+h3 { font-weight: 700; letter-spacing: .1em; }
+.tbl th { font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tabs button { font-weight: 600; font-size: 13px; letter-spacing: .02em; }
 .mono, .tbl td > b:first-child, .tbl td.small.mono, .qs-sub, .step-sub, kbd { font-family: var(--font-mono); }
-.tbl td > b:first-child { font-weight: 600; font-size: 12.5px; color: var(--brand); }
-.num, .tbl td.num, .stat-value { font-variant-numeric: tabular-nums lining-nums; }
-.btn { font-family: var(--font-head); font-weight: 600; font-size: 14px; letter-spacing: .01em; }
+.tbl td > b:first-child { font-weight: 600; font-size: 12.5px; letter-spacing: -.01em; }
+.num, .tbl td.num { font-variant-numeric: tabular-nums; }
+.btn { font-family: var(--font-body); letter-spacing: .01em; }
 
 /* 2. Navy sidebar with a faint woven (twill) texture, green active marker */
 .side {
-  background-color: var(--brand); border-right: 0; color: rgba(255,255,255,.76);
+  background-color: var(--brand); border-right: 0; color: rgba(255,255,255,.74);
   background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
                     repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px);
 }
-.side .brand strong { color: #fff; letter-spacing: .1em; font-size: 14px; font-weight: 800; white-space: nowrap; }
+.side .brand strong { color: #fff; letter-spacing: .12em; font-size: 12.5px; font-weight: 900; white-space: nowrap; }
 .side .brand small { color: rgba(255,255,255,.55); }
-.side .brand-logo { background: #fff; color: var(--brand); box-shadow: inset 0 -3px 0 var(--accent); font-family: var(--font-head); font-weight: 800; border-radius: 4px; }
-.side .nav-group { color: rgba(255,255,255,.45); letter-spacing: .08em; font-weight: 600; font-size: 11.5px; }
-.side a { color: rgba(255,255,255,.78); border-radius: 3px; font-size: 14.5px; font-weight: 500; }
+.side .brand-logo { background: #fff; color: var(--brand); box-shadow: inset 0 -3px 0 var(--accent); font-family: var(--font-head); font-weight: 900; }
+.side .nav-group { color: rgba(255,255,255,.42); letter-spacing: .14em; font-weight: 700; }
+.side a { color: rgba(255,255,255,.74); border-radius: 4px; }
 .side a:hover { background: rgba(255,255,255,.07); color: #fff; }
-.side a.active { background: rgba(255,255,255,.11); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
-.side .num-tag, .side a.active .num-tag { background: rgba(255,255,255,.14); color: #fff; border-radius: 3px; font-family: var(--font-mono); }
+.side a.active { background: rgba(255,255,255,.1); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+.side .num-tag, .side a.active .num-tag { background: rgba(255,255,255,.14); color: #fff; }
 .side-foot { border-top-color: rgba(255,255,255,.14); color: rgba(255,255,255,.45); }
 .welcome-hero { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
   repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
   linear-gradient(160deg, rgba(26,32,81,.94) 0%, rgba(26,32,81,.86) 55%, rgba(26,32,81,.97) 100%), var(--hero); background-size: auto, auto, auto, cover; background-position: center; }
 
-/* 3. Panels and ERP-style data grids: square corners, ruled headers,
-      light gridlines and zebra rows — like a spreadsheet, not a web template */
-.card, .modal, .how, .qs, .ripple, .welcome-card { border-radius: 3px; }
-.card { box-shadow: none; border-color: var(--line-strong); }
-.btn, input, select, textarea, .qs-trigger { border-radius: 3px; }
-.tbl { border: 1px solid var(--line); }
-.tbl th { font-weight: 600; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); background: #f1efe7; border-bottom: 1px solid var(--line-strong); border-right: 1px solid var(--line); }
-.tbl td { border-bottom: 1px solid var(--line); border-right: 1px solid #f1eee6; padding: 8px 10px; }
-.tbl th:last-child, .tbl td:last-child { border-right: 0; }
-.tbl tbody tr:nth-child(even) td { background: #fbfaf6; }
-.tbl tr.click:hover td { background: #eef3ea !important; }
-.tbl tr:last-child td { border-bottom: 0; }
-.tbl.lines, .tbl.compact { border: 1px solid var(--line); }
-.tbl th .small, .tbl th .muted { font-family: var(--font-body); font-weight: 500; font-size: 11.5px; color: var(--muted); }
-.mrp th { background: #f1efe7; font-family: var(--font-head); }
+/* 3. Sharper, flatter cards: thin borders, small corners, no soft shadows */
+.card, .stat, .modal, .how, .qs, .ripple, .welcome-card { border-radius: 6px; }
+.card, .stat { box-shadow: none; border-color: var(--line-strong); }
+.btn, input, select, textarea, .how-btn, .qs-trigger { border-radius: 4px; }
+.badge { border-radius: 3px; font-weight: 600; letter-spacing: .02em; }
+.tbl th { border-bottom: 1.5px solid var(--line-strong); }
 
-/* 4. KPI strip: the headline numbers sit in one ruled panel (like an ERP
-      header bar) instead of separate floating cards */
-.stats { gap: 0; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel); overflow: hidden; }
-.stat { border: 0; border-radius: 0; box-shadow: none; border-right: 1px solid var(--line); padding: 14px 18px; background: transparent; }
-.stat:last-child { border-right: 0; }
-.stat.clickable:hover { background: var(--hover); border-color: var(--line); }
-.stat-label { font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
-.stat-value { font-weight: 700; font-size: 30px; letter-spacing: -.01em; color: var(--brand); }
-.stat.warn .stat-value { color: #a86a00; } .stat.bad .stat-value { color: var(--red); } .stat.good .stat-value { color: var(--accent-ink); }
+/* 4. Bolder number cards with a colored top rule (factory control board) */
+.stat { border-top: 3px solid var(--brand); padding-top: 14px; }
+.stat.good { border-top-color: var(--accent); }
+.stat.warn { border-top-color: #d89a1c; }
+.stat.bad { border-top-color: var(--red); }
+.stat-label { font-family: var(--font-head); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.stat-value { font-weight: 800; font-size: 30px; letter-spacing: -.01em; }
 
 /* 5. Fabric color swatches next to item names */
 .item-name { display: inline; }
-.swatch-chip { display: inline-block; width: 11px; height: 11px; border-radius: 1px; margin-right: 7px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
-
-/* 6. Status tags, help and buttons: square, bordered tags instead of soft pills */
-.badge { border-radius: 2px; font-weight: 600; font-size: 12px; padding: 1px 7px; border: 1px solid currentColor; background: transparent !important; }
-.badge.grey { color: var(--muted); }
-.how-btn { border-radius: 3px; background: transparent; border: 1px solid var(--line-strong); color: var(--ink); font-family: var(--font-head); font-weight: 600; font-size: 13.5px; }
-.how-btn:hover, .how-btn.on { background: var(--panel); border-color: var(--brand); }
-.how { background: #f7f8fb; border-color: #d8dcea; border-left: 3px solid var(--brand); }
-.btn.primary { background: var(--brand); }
-.step-dot { border-radius: 3px; }
-
-/* 7. Charts: solid navy bars, the latest period highlighted in brand green */
-.bar { background: #3b4478; border-radius: 1px 1px 0 0; opacity: 1; }
-.bar-col:last-child .bar { background: var(--accent); }
-.bar-col:hover .bar { background: var(--brand); }
-.hbar > div { background: #3b4478 !important; border-radius: 1px; }
-
-/* 8. Top bar: breadcrumb on the left (where you are), tools on the right */
-.topbar { background: var(--panel); justify-content: flex-start; }
-.crumb { font-family: var(--font-head); font-size: 14.5px; color: var(--muted); margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.crumb b { color: var(--ink); font-weight: 600; }
-.qs-trigger { margin-right: 0; min-width: 220px; }
-@media (max-width: 900px) { .crumb { display: none; } .qs-trigger { margin-right: auto; } }
-@media (max-width: 600px) {
-  .stat-value { font-size: 22px; white-space: nowrap; }
-  .stats .stat { border-bottom: 1px solid var(--line); }
-  .qs-trigger { flex: 0 0 auto; min-width: 0; margin-right: auto; }
-}
+.swatch-chip { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+.tbl th .small, .tbl th .muted { font-family: var(--font-body); text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }

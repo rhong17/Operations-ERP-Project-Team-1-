@@ -48,7 +48,7 @@ export default function Portal({ tab = 'shop', preview }) {
   )
 
   return (
-    <Page title={preview ? 'Customer portal (staff preview)' : `Hi${me ? ', ' + me.name.split(' ')[0] : ''}`} subtitle="See what's in stock at our Gamarra store and warehouse, and order for pickup"
+    <Page title={preview ? 'Customer portal (staff preview)' : `Hi${me ? ', ' + me.name.split(' ')[0] : ''} 👋`} subtitle="See what's in stock at our Gamarra store and warehouse, and order for pickup"
       how={preview ? <p>This is what a customer sees after signing up without a team code. Live stock comes from the same database as the ERP; placing an order creates a sales order (status Order Placed) that staff fulfil. Staff logins can't place portal orders.</p> : null}>
       <div className="pos-grid">
         <div>

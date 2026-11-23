@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam, Steps, userName, ItemName, Icon } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam, Steps, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, supplierScorecard, inventoryPolicy, todayLima, addDays, daysBetween, sum, setting, groupBy } from '../lib/calc.js'
 import { NewWO } from './Production.jsx'
 
@@ -124,7 +124,7 @@ function PODetail({ id, onClose }) {
       {p.status === 'draft' && <><Btn kind="danger" onClick={() => call('cancel_po', { p_id: id }, { success: 'PO cancelled' })}>Cancel</Btn><Btn kind="primary" onClick={() => call('send_po', { p_id: id }, { success: r => `Sent — expected ${dfmt(r.expected_date)}` })}>Mark as sent</Btn></>}
       {p.status === 'sent' && !recs.length && <Btn kind="danger" onClick={() => call('cancel_po', { p_id: id }, { success: 'PO cancelled' })}>Cancel PO</Btn>}
       {['received', 'partial'].includes(p.status) && <Btn onClick={() => call('close_po', { p_id: id }, { success: 'PO closed' })}>Close PO{p.status === 'partial' ? ' (short)' : ''}</Btn>}
-      <a className="btn" href={mailto} title="Opens a draft in Spanish, since the suppliers are in Peru"><Icon name="mail" size={15} /> Email to supplier (Spanish)</a>
+      <a className="btn" href={mailto} title="Opens a draft in Spanish, since the suppliers are in Peru">✉ Email to supplier (Spanish)</a>
     </>}>
       <Steps steps={steps} />
       <div className="row gap wrap" style={{ marginBottom: 10 }}>

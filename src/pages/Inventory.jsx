@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode, userName, ItemName, Icon } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, etaFor, onOrder, todayLima, inventoryPolicy, num, allocations } from '../lib/calc.js'
 
 export const ADJ_REASONS = ['Cycle count', 'Damaged', 'Lost / stolen', 'Found', 'Sample / display', 'Data correction', 'Scrap from quality hold']
@@ -212,7 +212,7 @@ function Labels() {
   const toggle = id => { const m = new Map(sel); m.has(id) ? m.delete(id) : m.set(id, 1); setSel(m) }
   const labels = [...sel.entries()].flatMap(([id, n]) => Array(n).fill(db.items.find(i => i.id === id)))
   return <>
-    <Card className="no-print" title="Choose labels" actions={<button className="btn primary" onClick={() => window.print()}><Icon name="printer" size={15} /> Print labels</button>} >
+    <Card className="no-print" title="Choose labels" actions={<button className="btn primary" onClick={() => window.print()}>🖨 Print labels</button>} >
       <p className="muted">Barcodes are printed as <b>Code 128</b> with each item's real company barcode number (EAN column), so a USB scanner or phone camera reads them in POS, receiving and counts. Print at 100% scale and tape them to the physical items.</p>
       <div className="tbl-wrap"><table className="tbl compact no-print"><tbody>{db.items.filter(i => i.active).map(i => (
         <tr key={i.id}><td><input type="checkbox" checked={sel.has(i.id)} onChange={() => toggle(i.id)} /></td><td>{i.name}</td><td className="small">{i.ean}</td>
