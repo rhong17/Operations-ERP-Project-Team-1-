@@ -70,10 +70,7 @@ export default function Portal({ tab = 'shop', preview }) {
             <tr className="total"><td>Total (pay at pickup, IGV incl.)</td><td className="num">{money(round(total, 2))}</td></tr></tbody></table>}
           {bad.length > 0 && <p className="error-text small">Some items aren't available at this location in that quantity.</p>}
           <div style={{ marginTop: 10 }}><Btn kind="primary" disabled={!lines.length || bad.length > 0 || preview} onClick={place}>Place pickup order</Btn></div>
-          {preview && <div className="preview-note">
-            <b>Preview only — ordering is turned off for staff logins.</b>
-            <span>A pickup order has to belong to a customer account, and staff logins don't have one. To try ordering, open a private window, sign up <b>without</b> a team code, and order from there. The order then appears under <b>Sales Orders → Portal pickups</b> for staff to fulfil.</span>
-          </div>}
+          {preview && <p className="muted small" style={{ margin: '8px 0 0' }}>Preview only — ordering is turned off for staff logins.</p>}
         </Card>
       </div>
     </Page>
