@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, CameraScanner } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, CameraScanner, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, setting, round, groupBy, sum } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
@@ -136,7 +136,7 @@ function QualityHold() {
     <Card title="Items in Quality Hold">
       <p className="muted">Defective returns wait here. <b>Rework</b> moves them back to sellable stock after fixing; <b>Scrap</b> writes them off (an inventory adjustment with a reason, expensed in the P&amp;L).</p>
       {rows.length === 0 ? <Empty icon="check">Nothing is waiting in Quality Hold.</Empty> : <table className="tbl"><thead><tr><th>Item</th><th className="num">Qty</th><th className="num">Value</th><th></th></tr></thead><tbody>
-        {rows.map(s => { const it = ix.items.get(s.item_id); return <tr key={s.item_id}><td>{it?.name}</td><td className="num">{qtyFmt(s.qty)}</td><td className="num">{money(s.qty * it.avg_cost)}</td>
+        {rows.map(s => { const it = ix.items.get(s.item_id); return <tr key={s.item_id}><td><ItemName item={it} /></td><td className="num">{qtyFmt(s.qty)}</td><td className="num">{money(s.qty * it.avg_cost)}</td>
           <td className="row gap">
             <Btn small onClick={() => call('transfer_stock', { p_item: s.item_id, p_from: s.location_id, p_to: 'LOC03', p_qty: s.qty, p_note: 'Reworked after quality hold' }, { success: 'Reworked units moved to finished-goods warehouse' })}>Rework → FG warehouse</Btn>
             <Btn small kind="danger" onClick={() => call('adjust_stock', { p: { item_id: s.item_id, location_id: s.location_id, mode: 'delta', qty: -s.qty, reason: 'Scrap from quality hold' } }, { success: 'Scrapped and expensed' })}>Scrap</Btn>

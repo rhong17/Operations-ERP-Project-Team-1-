@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam, Steps, userName } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam, Steps, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, supplierScorecard, inventoryPolicy, todayLima, addDays, daysBetween, sum, setting, groupBy } from '../lib/calc.js'
 import { NewWO } from './Production.jsx'
 
@@ -82,7 +82,7 @@ export function NewPO({ onClose, onCreated, preset }) {
       </div>
       <div style={{ margin: '12px 0' }}><ItemSearch filter={i => i.make_or_buy === 'Buy'} onPick={item => setLines(ls => [...ls, { item, qty: 1, cost: item.std_cost }])} placeholder="Scan or search a material to buy…" /></div>
       {lines.length > 0 && <table className="tbl lines"><thead><tr><th>Item</th><th>Usual supplier</th><th className="num">Qty</th><th className="num">Unit cost</th><th className="num">Line</th><th></th></tr></thead><tbody>
-        {lines.map((l, i) => <tr key={i}><td>{l.item.name}</td><td className="small">{l.item.supplier_id === sup ? '✓' : <span className="neg">{ix.suppliers.get(l.item.supplier_id)?.name || '—'}</span>}</td>
+        {lines.map((l, i) => <tr key={i}><td><ItemName item={l.item} /></td><td className="small">{l.item.supplier_id === sup ? '✓' : <span className="neg">{ix.suppliers.get(l.item.supplier_id)?.name || '—'}</span>}</td>
           <td className="num"><input type="number" min="0" step="any" value={l.qty} onChange={e => setLines(a => a.map((x, k) => k === i ? { ...x, qty: e.target.value } : x))} /> {l.item.uom}</td>
           <td className="num"><input type="number" min="0" step="0.01" value={l.cost} onChange={e => setLines(a => a.map((x, k) => k === i ? { ...x, cost: e.target.value } : x))} /></td>
           <td className="num">{money(l.qty * l.cost)}</td><td><button className="icon-btn" onClick={() => setLines(a => a.filter((_, k) => k !== i))}>✕</button></td></tr>)}
@@ -135,7 +135,7 @@ function PODetail({ id, onClose }) {
         <Stat label="Billed / paid" value={money(billed)} sub={`paid ${money(paid)} · owed ${money(billed - paid)}`} tone={billed - paid > 0.005 ? 'warn' : ''} />
       </div>
       <table className="tbl lines"><thead><tr><th>Item</th><th className="num">Ordered</th><th className="num">Received</th><th className="num">Unit cost</th>{receiving && <th className="num">Receive now</th>}</tr></thead><tbody>
-        {lines.map(l => { const it = ix.items.get(l.item_id); return <tr key={l.id}><td>{it?.name}</td><td className="num">{qtyFmt(l.qty_ordered, it?.uom)}</td><td className="num">{qtyFmt(l.qty_received, it?.uom)}</td><td className="num">{money(l.unit_cost)}</td>
+        {lines.map(l => { const it = ix.items.get(l.item_id); return <tr key={l.id}><td><ItemName item={it} /></td><td className="num">{qtyFmt(l.qty_ordered, it?.uom)}</td><td className="num">{qtyFmt(l.qty_received, it?.uom)}</td><td className="num">{money(l.unit_cost)}</td>
           {receiving && <td className="num"><input type="number" min="0" step="any" placeholder={String(l.qty_ordered - l.qty_received)} value={qtys[l.id] ?? ''} onChange={e => setQtys({ ...qtys, [l.id]: e.target.value })} /></td>}</tr> })}
       </tbody></table>
       {receiving && <div className="row gap wrap" style={{ marginTop: 10 }}>

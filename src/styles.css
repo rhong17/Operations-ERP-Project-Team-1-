@@ -26,7 +26,10 @@
   --red: #a8372f; --red-soft: #f8e6e3;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(26,32,81,.04);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-head: 'Archivo', 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-family: var(--font-body);
   color: var(--ink);
   background: var(--bg);
   font-size: 14px;
@@ -255,15 +258,15 @@ input[type=checkbox] { width: auto; }
 .welcome-hero { position: relative; overflow: hidden; color: #fff; padding: 30px 36px; display: flex; flex-direction: column; gap: 20px; border-radius: 20px;
   background: linear-gradient(160deg, rgba(26,32,81,.94) 0%, rgba(26,32,81,.86) 55%, rgba(26,32,81,.97) 100%), var(--hero) center / cover no-repeat, var(--brand); }
 .welcome-brand { display: flex; align-items: center; gap: 10px; }
-.welcome-brand span { font-family: Archivo, Inter, sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: .2em; font-size: 14px; }
+.welcome-brand span { font-family: var(--font-head); font-weight: 900; text-transform: uppercase; letter-spacing: .2em; font-size: 14px; }
 .welcome-brand .brand-logo { background: #fff; color: var(--brand); }
 .welcome-copy { margin-top: auto; max-width: 480px; }
 .welcome-eyebrow { color: var(--accent-pale); text-transform: uppercase; letter-spacing: .2em; font-size: 12px; font-weight: 600; margin-bottom: 10px; }
-.welcome-copy h1 { font-family: Archivo, Inter, sans-serif; font-weight: 900; text-transform: uppercase; font-size: clamp(26px, 2.8vw, 38px); line-height: 1.05; letter-spacing: -.01em; margin: 0 0 12px; color: #fff; }
+.welcome-copy h1 { font-family: var(--font-head); font-weight: 900; text-transform: uppercase; font-size: clamp(26px, 2.8vw, 38px); line-height: 1.05; letter-spacing: -.01em; margin: 0 0 12px; color: #fff; }
 .welcome-copy h1 em { font-style: normal; color: var(--accent); }
 .welcome-copy p { color: rgba(255,255,255,.72); font-size: 14px; line-height: 1.6; margin: 0; }
 .welcome-facts { list-style: none; padding: 18px 0 0; margin: 0; display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 14px 26px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); max-width: 480px; }
-.welcome-facts b { display: block; font-family: Archivo, Inter, sans-serif; font-weight: 900; font-size: 19px; line-height: 1.15; }
+.welcome-facts b { display: block; font-family: var(--font-head); font-weight: 900; font-size: 19px; line-height: 1.15; }
 .welcome-facts span { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.65); }
 .welcome-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 420px; margin-bottom: auto; }
 .welcome-tiles img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; background: rgba(255,255,255,.08); box-shadow: 0 6px 18px rgba(0,0,0,.2); }
@@ -271,7 +274,7 @@ input[type=checkbox] { width: auto; }
 .welcome-credit:hover { color: rgba(255,255,255,.8); }
 .welcome-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; gap: 18px; }
 .welcome-card { width: min(460px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 40px 42px; box-shadow: 0 24px 60px rgba(26,32,81,.09); }
-.welcome-card h2 { font-family: Archivo, Inter, sans-serif; font-weight: 800; font-size: 30px; color: var(--brand); margin: 0 0 6px; letter-spacing: -.01em; }
+.welcome-card h2 { font-family: var(--font-head); font-weight: 800; font-size: 30px; color: var(--brand); margin: 0 0 6px; letter-spacing: -.01em; }
 .welcome-card > p.muted { margin: 0 0 22px; font-size: 15px; }
 .welcome-card input { padding: 11px 13px; font-size: 15px; }
 .welcome-card .field-label { font-size: 13px; }
@@ -366,7 +369,7 @@ input[type=checkbox] { width: auto; }
 .btn .icon { margin-right: 2px; }
 
 /* ---------- quick search (⌘K) ---------- */
-kbd { font: 600 11px/1 Inter, system-ui, sans-serif; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 3px 5px; }
+kbd { font: 600 11px/1 var(--font-mono); color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 3px 5px; }
 .qs-trigger { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; min-width: 240px; font: inherit; font-size: 13px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px 6px 11px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .qs-trigger:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-softer); }
 .qs-trigger span { flex: 1; text-align: left; }
@@ -463,3 +466,62 @@ kbd { font: 600 11px/1 Inter, system-ui, sans-serif; color: var(--muted); backgr
 .step-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 @media (max-width: 700px) { .steps { flex-direction: column; gap: 10px; } .step::after { display: none; } }
 @media print { .steps { display: none; } }
+
+/* =====================================================================
+   TEXTILES MOVE HOUSE STYLE
+   Each numbered section can be deleted on its own to undo that change.
+   ===================================================================== */
+
+/* 1. Typography: Archivo (company website) for headings and big numbers,
+      IBM Plex Sans for text, IBM Plex Mono for document numbers and codes */
+h1, h2, h3, .stat-value, .brand strong, .modal-head h2, .nav-group, .tbl th, .tabs button { font-family: var(--font-head); }
+.page-head h1 { font-weight: 800; font-size: 27px; text-transform: uppercase; letter-spacing: .005em; line-height: 1.1; }
+.page-head p { font-size: 13.5px; }
+.card-head h2 { font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--brand); }
+.modal-head h2 { font-weight: 700; font-size: 16.5px; letter-spacing: .005em; }
+h3 { font-weight: 700; letter-spacing: .1em; }
+.tbl th { font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tabs button { font-weight: 600; font-size: 13px; letter-spacing: .02em; }
+.mono, .tbl td > b:first-child, .tbl td.small.mono, .qs-sub, .step-sub, kbd { font-family: var(--font-mono); }
+.tbl td > b:first-child { font-weight: 600; font-size: 12.5px; letter-spacing: -.01em; }
+.num, .tbl td.num { font-variant-numeric: tabular-nums; }
+.btn { font-family: var(--font-body); letter-spacing: .01em; }
+
+/* 2. Navy sidebar with a faint woven (twill) texture, green active marker */
+.side {
+  background-color: var(--brand); border-right: 0; color: rgba(255,255,255,.74);
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
+                    repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px);
+}
+.side .brand strong { color: #fff; letter-spacing: .12em; font-size: 12.5px; font-weight: 900; white-space: nowrap; }
+.side .brand small { color: rgba(255,255,255,.55); }
+.side .brand-logo { background: #fff; color: var(--brand); box-shadow: inset 0 -3px 0 var(--accent); font-family: var(--font-head); font-weight: 900; }
+.side .nav-group { color: rgba(255,255,255,.42); letter-spacing: .14em; font-weight: 700; }
+.side a { color: rgba(255,255,255,.74); border-radius: 4px; }
+.side a:hover { background: rgba(255,255,255,.07); color: #fff; }
+.side a.active { background: rgba(255,255,255,.1); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+.side .num-tag, .side a.active .num-tag { background: rgba(255,255,255,.14); color: #fff; }
+.side-foot { border-top-color: rgba(255,255,255,.14); color: rgba(255,255,255,.45); }
+.welcome-hero { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
+  repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 1px, transparent 1px 5px),
+  linear-gradient(160deg, rgba(26,32,81,.94) 0%, rgba(26,32,81,.86) 55%, rgba(26,32,81,.97) 100%), var(--hero); background-size: auto, auto, auto, cover; background-position: center; }
+
+/* 3. Sharper, flatter cards: thin borders, small corners, no soft shadows */
+.card, .stat, .modal, .how, .qs, .ripple, .welcome-card { border-radius: 6px; }
+.card, .stat { box-shadow: none; border-color: var(--line-strong); }
+.btn, input, select, textarea, .how-btn, .qs-trigger { border-radius: 4px; }
+.badge { border-radius: 3px; font-weight: 600; letter-spacing: .02em; }
+.tbl th { border-bottom: 1.5px solid var(--line-strong); }
+
+/* 4. Bolder number cards with a colored top rule (factory control board) */
+.stat { border-top: 3px solid var(--brand); padding-top: 14px; }
+.stat.good { border-top-color: var(--accent); }
+.stat.warn { border-top-color: #d89a1c; }
+.stat.bad { border-top-color: var(--red); }
+.stat-label { font-family: var(--font-head); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.stat-value { font-weight: 800; font-size: 30px; letter-spacing: -.01em; }
+
+/* 5. Fabric color swatches next to item names */
+.item-name { display: inline; }
+.swatch-chip { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+.tbl th .small, .tbl th .muted { font-family: var(--font-body); text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }

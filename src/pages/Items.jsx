@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, Modal, Btn, Badge, Barcode, useOpenParam } from '../components/ui.jsx'
+import { Page, Card, Field, Modal, Btn, Badge, Barcode, useOpenParam, ItemName } from '../components/ui.jsx'
 import { money, num, qtyFmt, inventoryPolicy, effQty, sum } from '../lib/calc.js'
 
 export default function Items() {
@@ -26,7 +26,7 @@ export default function Items() {
         </div>
         <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Barcode</th><th>Type</th><th className="num">Std cost</th><th className="num">Avg cost</th><th className="num">Retail (IGV incl.)</th><th className="num">Wholesale</th><th className="num">Lead time</th><th className="num">ROP</th><th className="num">EOQ</th><th>Lot rule</th><th className="num">On hand</th><th></th></tr></thead><tbody>
           {list.map(i => { const p = policy.get(i.id); return <tr key={i.id} className={i.active ? '' : 'dim'}>
-            <td>{i.name}<span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.variant_sku || i.sku}</div></td><td className="small">{i.ean}</td><td>{i.item_type}</td>
+            <td><ItemName item={i} /><span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.variant_sku || i.sku}</div></td><td className="small">{i.ean}</td><td>{i.item_type}</td>
             <td className="num">{money(i.std_cost)}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{i.sale_price ? money(i.sale_price) : '—'}</td><td className="num">{i.wholesale_price ? money(i.wholesale_price) : '—'}</td>
             <td className="num">{i.lead_time_days} d</td><td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{p ? num(p.eoq, 0) : '—'}</td><td>{i.lot_rule}{i.lot_rule === 'FOQ' ? ' ' + i.lot_qty : ''}</td>
             <td className="num">{qtyFmt(ix.onHand(i.id), i.uom)}</td>

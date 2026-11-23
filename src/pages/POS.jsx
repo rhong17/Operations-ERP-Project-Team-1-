@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode, useUsd } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode, useUsd, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, round, setting, dt } from '../lib/calc.js'
 
 // Price before IGV for a customer's price list (mirrors _price() in the database)
@@ -72,7 +72,7 @@ export default function POS() {
               <div className="tbl-wrap"><table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand here</th><th className="num">Qty</th><th className="num">Price (pre-IGV)</th><th className="num">Disc %</th><th className="num">Net</th><th></th></tr></thead>
                 <tbody>{lines.map((l, i) => (
                   <tr key={l.item.id}>
-                    <td>{l.item.name}<div className="muted small">{l.item.name_es} · {l.item.ean}</div></td>
+                    <td><ItemName item={l.item} /><div className="muted small">{l.item.name_es} · {l.item.ean}</div></td>
                     <td className={'num ' + (l.qty > l.avail ? 'neg' : '')}>{qtyFmt(l.avail, l.item.uom)}</td>
                     <td className="num"><input type="number" min="1" value={l.qty} onChange={e => upd(i, { qty: Math.max(1, Number(e.target.value) || 1) })} /></td>
                     <td className="num">{money(l.price)}</td>

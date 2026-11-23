@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
 import { supabase } from '../lib/supabase.js'
-import { Page, Card, Field, Btn, StatusBadge, Empty, Badge } from '../components/ui.jsx'
+import { Page, Card, Field, Btn, StatusBadge, Empty, Badge, Swatch } from '../components/ui.jsx'
 import { money, dt, dfmt, setting, todayLima, addDays, round } from '../lib/calc.js'
 
-const SWATCH = { NEGRO: '#151515', HUESO: '#efe6d2', LILA: '#c3a3d1', CRISTAL: '#cfe8ee', SURTIDO: 'linear-gradient(90deg,#151515,#efe6d2,#c3a3d1)' }
 const PICKUP = ['LOC04', 'LOC03']   // store and finished-goods warehouse
 
 // Customer-facing portal: see what's available where, and order for pickup.
@@ -56,7 +55,7 @@ export default function Portal({ tab = 'shop', preview }) {
           <Card><input placeholder="Search products…" value={q} onChange={e => setQ(e.target.value)} /></Card>
           <div className="shop">{products.map(i => (
             <div className="product" key={i.id}>
-              <div><span className="swatch" style={{ background: SWATCH[i.color] || '#ccc' }} /><b>{i.name}</b></div>
+              <div><Swatch color={i.color} /><b>{i.name}</b></div>
               <div className="es">{i.name_es}</div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{money(me?.price_list === 'wholesale' && i.wholesale_price ? i.wholesale_price * (1 + (me?.igv_exempt ? 0 : igv)) : i.sale_price)}</div>
               <table className="tbl compact"><tbody>{PICKUP.map(l => { const n = avail(i.id, l); return <tr key={l}><td>{ix.locations.get(l)?.name}</td><td className="num">{n > 0 ? <Badge tone={n > 10 ? 'green' : 'amber'}>{n} available</Badge> : <Badge tone="red">out of stock</Badge>}</td></tr> })}</tbody></table>
