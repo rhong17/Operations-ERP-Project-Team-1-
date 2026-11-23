@@ -19,7 +19,7 @@ export function Page({ title, subtitle, actions, how, children }) {
           {subtitle && <p className="muted">{subtitle}</p>}
         </div>
         <div className="row gap wrap">
-          {how && <button className={'how-btn ' + (open ? 'on' : '')} onClick={toggle} aria-expanded={open}>ⓘ How this works</button>}
+          {how && <button className={'how-btn ' + (open ? 'on' : '')} onClick={toggle} aria-expanded={open}><Icon name="help" size={14} /> How this works</button>}
           {actions}
         </div>
       </div>
@@ -146,6 +146,10 @@ const ICONS = {
   page: 'M3 3h18v18H3zM3 9h18M9 21V9',
   scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12',
   printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+  camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+  menu: 'M3 6h18M3 12h18M3 18h18',
 }
 export const Icon = ({ name, size = 16 }) => (
   <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -218,7 +222,7 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); if (/^\d{6,}$/.test(q.trim())) pickCode(q); else if (matches[0]) { onPick(matches[0]); setQ('') } }
           }} />
-        {showCamera && <button type="button" className="btn secondary" title="Scan with camera" onClick={() => setCam(true)}>📷 Camera</button>}
+        {showCamera && <button type="button" className="btn secondary" title="Scan with camera" onClick={() => setCam(true)}><Icon name="camera" size={15} /> Camera</button>}
       </div>
       {matches.length > 0 && (
         <div className="dropdown">

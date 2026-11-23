@@ -2,7 +2,7 @@ import { Component, useEffect, useState } from 'react'
 import { HashRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { supabase, configured } from './lib/supabase.js'
 import { DataProvider, useData } from './lib/data.jsx'
-import { Toasts, RipplePanel, LiveDot, LoadingScreen } from './components/ui.jsx'
+import { Toasts, RipplePanel, LiveDot, LoadingScreen, Icon } from './components/ui.jsx'
 import { QuickSearch, QuickSearchButton } from './components/QuickSearch.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
@@ -73,6 +73,15 @@ const STAFF_NAV = [
 
 const STAFF_PAGES = STAFF_NAV.flatMap(([, links]) => links)
 
+// "Make & Stock › Production Orders" — where you are, shown in the top bar
+function Crumb({ path }) {
+  for (const [group, links] of STAFF_NAV) {
+    const hit = links.find(([to]) => to === path)
+    if (hit) return <span className="crumb">{group} <span aria-hidden="true">›</span> <b>{hit[1]}</b></span>
+  }
+  return <span className="crumb" />
+}
+
 function Shell({ profile }) {
   const { db, error, isStaff, setRipple } = useData()
   const [menu, setMenu] = useState(false)
@@ -108,7 +117,8 @@ function Shell({ profile }) {
       </aside>
       <div className="main">
         <header className="topbar">
-          <button className="btn small menu-btn" onClick={() => setMenu(!menu)}>☰ Menu</button>
+          <button className="btn small menu-btn" onClick={() => setMenu(!menu)}><Icon name="menu" size={15} /> Menu</button>
+          {isStaff && <Crumb path={loc.pathname} />}
           {isStaff && <QuickSearchButton />}
           <LiveDot />
           <span className="who">{profile.full_name || profile.email} · <b>{isStaff ? 'Staff' : 'Customer'}</b></span>

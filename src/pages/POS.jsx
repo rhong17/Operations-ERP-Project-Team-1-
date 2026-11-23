@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode, useUsd, ItemName } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, Empty, Barcode, useUsd, ItemName, Icon } from '../components/ui.jsx'
 import { money, qtyFmt, round, setting, dt } from '../lib/calc.js'
 
 // Price before IGV for a customer's price list (mirrors _price() in the database)
@@ -49,7 +49,7 @@ export default function POS() {
   return (
     <Page title="Point of Sale" subtitle="Scan or search items, apply discounts, charge IGV, print a receipt"
       how={<>
-        <p><b>Scan to add:</b> click in the scan box and use a USB barcode scanner (it types the code and presses Enter), tap <b>📷 Camera</b> to scan with a phone, or type a name.</p>
+        <p><b>Scan to add:</b> click in the scan box and use a USB barcode scanner (it types the code and presses Enter), tap <b>Camera</b> to scan with a phone, or type a name.</p>
         <p>Prices on the shelf include IGV (18%). The POS shows the price <i>before</i> IGV and adds IGV on the total, so <code>total = net + 18% IGV</code> equals the shelf price. Wholesale customers get the wholesale price list; export customers are IGV-exempt.</p>
         <p><b>Completing the sale</b> lowers on-hand stock at the selected location at its weighted-average cost and posts Cash, Revenue, Discounts, IGV payable, COGS and Inventory in the journal — watch the panel that opens.</p>
       </>}>
@@ -103,7 +103,7 @@ export default function POS() {
 
 function Receipt({ r, onClose }) {
   return (
-    <Modal title={`Receipt ${r.id}`} onClose={onClose} footer={<><button className="btn" onClick={() => window.print()}>🖨 Print</button><button className="btn primary" onClick={onClose}>New sale</button></>}>
+    <Modal title={`Receipt ${r.id}`} onClose={onClose} footer={<><button className="btn" onClick={() => window.print()}><Icon name="printer" size={15} /> Print</button><button className="btn primary" onClick={onClose}>New sale</button></>}>
       <div className="receipt">
         <div className="c"><b>TEXTILES MOVE</b><br />{r.loc?.name}<br />{r.loc?.address}, {r.loc?.district}<br />{dt(r.at)}</div>
         <hr />
