@@ -61,7 +61,6 @@ input[type=checkbox] { width: auto; }
 .error-text { color: var(--red); }
 .warn-text { color: #a15c00; font-weight: 500; }
 .zero { color: #b3b0a6; }
-.preview-note { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.45; background: var(--brand-soft); border: 1px solid #d5d9ec; border-radius: 10px; padding: 10px 12px; color: var(--ink); }
 .pos { color: var(--green); } .neg { color: var(--red); }
 
 /* layout */
