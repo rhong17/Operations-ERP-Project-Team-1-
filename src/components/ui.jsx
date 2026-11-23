@@ -1,7 +1,7 @@
 // Shared building blocks used by every page.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import JsBarcode from 'jsbarcode'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
 import { money, qtyFmt, dt } from '../lib/calc.js'
 
@@ -269,7 +269,34 @@ export function Barcode({ value, height = 44, width = 1.6, fontSize = 12 }) {
 // Toasts + "ripple" panel showing every effect of the last transaction
 export function Toasts() {
   const { toasts } = useData()
-  return <div className="toasts">{toasts.map(t => <div key={t.id} className={'toast ' + t.tone}>{t.msg}</div>)}</div>
+  const nav = useNavigate()
+  return <div className="toasts">{toasts.map(t => <div key={t.id} className={'toast ' + t.tone}>
+    <span>{t.msg}</span>{t.to && <button className="toast-open" onClick={() => nav(t.to)}>Open →</button>}
+  </div>)}</div>
+}
+
+// Display name of the login that made a change ('' if unknown)
+export function userName(db, uid) {
+  if (!uid) return ''
+  const p = (db.profiles || []).find(x => x.id === uid)
+  return p ? (p.full_name || p.email || '').trim() : ''
+}
+
+// Progress tracker for a document: [{ label, at, by, state: 'done' | 'current' | 'todo' | 'cancelled' }]
+export function Steps({ steps }) {
+  return (
+    <ol className="steps">
+      {steps.map((s, k) => (
+        <li key={k} className={'step ' + s.state}>
+          <span className="step-dot">{s.state === 'done' ? '✓' : s.state === 'cancelled' ? '✕' : k + 1}</span>
+          <span className="step-text"><b>{s.label}</b>
+            {s.at && <span className="step-sub">{s.at}</span>}
+            {s.by && <span className="step-sub">by {s.by}</span>}
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
 }
 
 const FN_LABEL = {

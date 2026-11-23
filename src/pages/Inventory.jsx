@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode, userName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, etaFor, onOrder, todayLima, inventoryPolicy, num, allocations } from '../lib/calc.js'
 
 export const ADJ_REASONS = ['Cycle count', 'Damaged', 'Lost / stolen', 'Found', 'Sample / display', 'Data correction', 'Scrap from quality hold']
@@ -52,12 +52,13 @@ function OnHand() {
       <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th style={{ minWidth: 260 }}>Item</th><th>Barcode</th>{locs.map(l => <th key={l.id} className="num" title={l.name}>{l.id}<div className="small muted">{l.name.split(' ').slice(0, 3).join(' ')}</div></th>)}<th className="num">Usable total</th><th className="num" title="Open sales-order quantity not yet shipped">Committed</th><th className="num" title="Usable total − committed">Available</th><th className="num">ROP</th><th className="num">Avg cost</th><th className="num">Value</th></tr></thead>
         <tbody>{items.map(i => {
           const p = policy.get(i.id), tot = ix.onHand(i.id), com = alloc.committedOf(i.id), avl = tot - com
+          const dec = ['kg', 'cone'].includes(i.uom) ? 2 : 0   // fabric and thread show decimals so small changes are visible
           return <tr key={i.id}>
             <td>{i.name}<span className="es">{i.name_es}</span></td><td className="small">{i.ean}<div className="muted">{i.id}</div></td>
-            {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? qtyFmt(v) : <span className="muted">·</span>}</td> })}
+            {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? num(v, dec) : <span className="zero">0</span>}</td> })}
             <td className="num"><b>{qtyFmt(tot, i.uom)}</b> {p?.belowRop && <Badge tone="amber">≤ ROP</Badge>}</td>
-            <td className="num">{com ? qtyFmt(com) : <span className="muted">·</span>}</td>
-            <td className={'num ' + (avl < 0 ? 'neg' : '')}>{qtyFmt(avl)}</td>
+            <td className="num">{com ? num(com, dec) : <span className="zero">0</span>}</td>
+            <td className={'num ' + (avl < 0 ? 'neg' : '')}>{num(avl, dec)}</td>
             <td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{money(tot * i.avg_cost)}</td>
           </tr>
         })}</tbody></table></div>
@@ -197,9 +198,9 @@ function Moves() {
   const list = [...db.inv_moves].filter(m => !kind || m.kind === kind).sort((a, b) => b.id - a.id).slice(0, 300)
   return (
     <Card title="Stock movements" actions={<select value={kind} onChange={e => setKind(e.target.value)}><option value="">All types</option>{[...new Set(db.inv_moves.map(m => m.kind))].map(k => <option key={k}>{k}</option>)}</select>}>
-      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>When</th><th>Type</th><th>Document</th><th>Item</th><th>Location</th><th className="num">Qty</th><th className="num">Unit cost</th><th>Reason</th></tr></thead><tbody>
+      <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>When</th><th>Type</th><th>Document</th><th>Item</th><th>Location</th><th className="num">Qty</th><th className="num">Unit cost</th><th>Reason</th><th>By</th></tr></thead><tbody>
         {list.map(m => <tr key={m.id}><td className="nowrap">{dt(m.at)}</td><td>{m.kind}</td><td>{m.doc_id}</td><td>{ix.items.get(m.item_id)?.name}</td><td>{ix.locations.get(m.location_id)?.name}</td>
-          <td className={'num ' + (m.qty < 0 ? 'neg' : 'pos')}>{m.qty > 0 ? '+' : ''}{num(m.qty, 3)}</td><td className="num">{money(m.unit_cost)}</td><td>{m.reason || ''}</td></tr>)}
+          <td className={'num ' + (m.qty < 0 ? 'neg' : 'pos')}>{m.qty > 0 ? '+' : ''}{num(m.qty, 3)}</td><td className="num">{money(m.unit_cost)}</td><td>{m.reason || ''}</td><td className="nowrap small">{userName(db, m.user_id)}</td></tr>)}
       </tbody></table></div>
     </Card>
   )

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars, useOpenParam, Barcode, Icon } from '../components/ui.jsx'
+import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars, useOpenParam, Barcode, Icon, Steps, userName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, materialCheck, productionReport, todayLima, addDays, toLimaInput, fromLimaInput, groupBy, sum, limaDate } from '../lib/calc.js'
 import { Transfer } from './Inventory.jsx'
 import { NewPO } from './Purchasing.jsx'
@@ -129,6 +129,17 @@ function WODetail({ id, onClose }) {
   const comps = db.wo_components.filter(c => c.wo_id === id)
   const issues = db.wo_issues.filter(i => i.wo_id === id)
   const canCancel = ['planned', 'in_progress'].includes(w.status)
+  const issued = w.status === 'in_progress' || w.status === 'completed' || comps.some(c => Number(c.qty_issued) > 0)
+  const moves = db.inv_moves.filter(m => m.doc_id === id)
+  const by = kind => userName(db, moves.find(m => m.kind === kind)?.user_id)
+  const steps = [
+    { label: 'Planned', at: w.is_history ? '' : dt(w.created_at), state: 'done' },
+    ...(w.status === 'cancelled' && !issued ? [] : [{ label: 'Materials issued', at: issued ? dt(w.started_at) : '', by: by('wo_issue'), state: issued ? 'done' : w.status === 'planned' ? 'current' : 'todo' }]),
+    w.status === 'cancelled'
+      ? { label: 'Cancelled', at: dt(w.finished_at), by: by('wo_cancel'), state: 'cancelled' }
+      : { label: 'Completed', at: w.status === 'completed' ? dt(w.finished_at) : `due ${dfmt(w.due_date)}`, by: by('wo_receipt'), state: w.status === 'completed' ? 'done' : w.status === 'in_progress' ? 'current' : 'todo' },
+  ]
+  const here = ix.locations.get(w.location_id)?.name
   return (
     <Modal wide title={`Work order ${id} · ${item?.name}`} onClose={onClose} footer={<>
       <button className="btn" onClick={() => window.print()} title="Print a one-page traveler for the workshop"><Icon name="printer" size={15} /> Print traveler</button>
@@ -139,6 +150,7 @@ function WODetail({ id, onClose }) {
       {w.status === 'in_progress' && <Btn kind="primary" onClick={() => setCompleting(true)}>Complete…</Btn>}
     </>}>
       <Traveler w={w} item={item} comps={comps} issues={issues} />
+      <Steps steps={steps} />
       <div className="row gap wrap" style={{ marginBottom: 10 }}>
         <StatusBadge status={w.status} /><span>{w.qty_planned} units · make at {ix.locations.get(w.location_id)?.name} → {ix.locations.get(w.output_location_id)?.name} · due {dfmt(w.due_date)}</span>
         {w.cancel_reason && <Badge tone="red">{w.cancel_reason}</Badge>}
@@ -151,8 +163,9 @@ function WODetail({ id, onClose }) {
           onBuy={r => setBuy({ supplier_id: r.component.supplier_id, item_id: r.component.id, qty: r.short - Math.max(0, r.elsewhere) })} />
       </> : w.status === 'cancelled' && !comps.some(c => Number(c.qty_issued) > 0) ? <p className="muted">Cancelled before materials were issued — no stock or accounting was affected.</p> : <>
         <h3>{w.status === 'cancelled' ? 'Components issued, then returned to stock when cancelled' : `Components issued (bill of materials × ${w.qty_planned})`}</h3>
-        <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Issued</th><th className="num">Unit cost</th><th className="num">Value</th></tr></thead><tbody>
-          {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td>{it?.name}</td><td className="num">{qtyFmt(c.qty_issued, it?.uom)}</td><td className="num">{c.unit_cost != null ? money(c.unit_cost) : ''}</td><td className="num">{c.unit_cost != null ? money(c.qty_issued * c.unit_cost) : ''}</td></tr> })}
+        <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Issued</th><th className="num">Unit cost</th><th className="num">Value</th>{w.status !== 'cancelled' && <th className="num" title="What is on the shelf at this location right now, after the issue">Now at {here}</th>}</tr></thead><tbody>
+          {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td>{it?.name}</td><td className="num">{qtyFmt(c.qty_issued, it?.uom)}</td><td className="num">{c.unit_cost != null ? money(c.unit_cost) : ''}</td><td className="num">{c.unit_cost != null ? money(c.qty_issued * c.unit_cost) : ''}</td>
+            {w.status !== 'cancelled' && <td className="num">{qtyFmt(ix.onHand(c.item_id, w.location_id), it?.uom)}</td>}</tr> })}
         </tbody></table>
       </>}
       {w.status === 'completed' && <>

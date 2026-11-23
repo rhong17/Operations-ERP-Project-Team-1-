@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, useOpenParam, Steps, userName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, supplierScorecard, inventoryPolicy, todayLima, addDays, daysBetween, sum, setting, groupBy } from '../lib/calc.js'
 import { NewWO } from './Production.jsx'
 
@@ -106,6 +106,18 @@ function PODetail({ id, onClose }) {
   const paid = sum(db.supplier_payments.filter(x => x.po_id === id), x => x.amount)
   const billed = p.payment_terms === 'Prepaid' ? sum(lines, l => l.qty_ordered * l.unit_cost) : sum(lines, l => l.qty_received * l.unit_cost)
   const receiving = ['sent', 'partial'].includes(p.status)
+  const recMoves = db.inv_moves.filter(m => m.doc_id === id && m.kind === 'receipt')
+  const lastRec = recs.map(r => r.received_date).sort().pop()
+  const pays = db.supplier_payments.filter(x => x.po_id === id).map(x => x.paid_date).sort()
+  const fullyPaid = billed > 0.005 && paid >= billed - 0.005
+  const received = ['received', 'closed'].includes(p.status) && recs.length > 0
+  const steps = [
+    { label: 'Draft', at: p.is_history ? '' : dt(p.created_at), state: 'done' },
+    ...(p.status === 'cancelled' ? [{ label: 'Cancelled', at: p.closed_at ? dt(p.closed_at) : '', state: 'cancelled' }] : [
+      { label: 'Sent', at: p.sent_date ? dfmt(p.sent_date) : '', state: p.sent_date ? 'done' : 'current' },
+      { label: p.status === 'partial' ? 'Partly received' : 'Received', at: lastRec ? dfmt(lastRec) : p.expected_date ? `expected ${dfmt(p.expected_date)}` : '',
+        by: userName(db, recMoves[recMoves.length - 1]?.user_id), state: received ? 'done' : p.status === 'partial' || p.status === 'sent' ? 'current' : 'todo' },
+      { label: fullyPaid ? 'Paid' : paid > 0 ? 'Partly paid' : 'Paid', at: pays.length ? dfmt(pays[pays.length - 1]) : '', state: fullyPaid ? 'done' : received || paid > 0 ? 'current' : 'todo' }])]
   const mailto = `mailto:${s?.email}?subject=${encodeURIComponent(`Orden de compra ${p.id} - Textiles Move`)}&body=${encodeURIComponent(`Estimado(a) ${s?.contact_name},\n\nAdjuntamos la orden de compra ${p.id}:\n\n${lines.map(l => `- ${ix.items.get(l.item_id)?.name}: ${l.qty_ordered} ${ix.items.get(l.item_id)?.uom} a S/ ${l.unit_cost}`).join('\n')}\n\nEntrega en: ${ix.locations.get(p.ship_to_location_id)?.name}, ${ix.locations.get(p.ship_to_location_id)?.address}\nFecha esperada: ${p.expected_date || '(al enviar)'}\nCondiciones: ${p.payment_terms}\n\nSaludos,\nTextiles Move`)}`
   return (
     <Modal wide title={`Purchase order ${id}`} onClose={onClose} footer={<>
@@ -114,6 +126,7 @@ function PODetail({ id, onClose }) {
       {['received', 'partial'].includes(p.status) && <Btn onClick={() => call('close_po', { p_id: id }, { success: 'PO closed' })}>Close PO{p.status === 'partial' ? ' (short)' : ''}</Btn>}
       <a className="btn" href={mailto} title="Opens a draft in Spanish, since the suppliers are in Peru">✉ Email to supplier (Spanish)</a>
     </>}>
+      <Steps steps={steps} />
       <div className="row gap wrap" style={{ marginBottom: 10 }}>
         <StatusBadge status={p.status} /><b>{s?.name}</b><span className="muted">{s?.contact_name} · {s?.phone} · {p.payment_terms}</span>
       </div>

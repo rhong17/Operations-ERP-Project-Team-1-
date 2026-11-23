@@ -3737,8 +3737,10 @@ begin
   -- A planned work order (scheduled receipt for a parent item)
   insert into work_orders(id, item_id, qty_planned, location_id, output_location_id, status, created_at, due_date, notes)
   values ('WO-00035','FG02',120,'LOC02','LOC03','planned', now(), current_date + 5, 'Restock best seller (V-neck black M)');
-  insert into wo_components(wo_id, item_id, qty_required)
-  select 'WO-00035', component_id, round(120 * qty_per * (1 + scrap_pct), 4) from bom where parent_id = 'FG02';
+  insert into wo_components(wo_id, item_id, qty_required)   -- same rule as create_wo: countable items round up
+  select 'WO-00035', b.component_id,
+         case when c.uom in ('kg','cone') then round(120 * b.qty_per * (1 + b.scrap_pct), 4) else ceil(round(120 * b.qty_per * (1 + b.scrap_pct), 4)) end
+    from bom b join items c on c.id = b.component_id where b.parent_id = 'FG02';
   update doc_counters set n = 35 where prefix = 'WO';
 
   -- Keep customer logins working after a reset
