@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Badge, Empty, Modal } from '../components/ui.jsx'
+import { Page, Card, Badge, Empty, Modal, ItemName } from '../components/ui.jsx'
 import { runMRP, num, dfmt, dshort, qtyFmt, todayLima, addDays, effQty } from '../lib/calc.js'
 import { NewPO } from './Purchasing.jsx'
 import { NewWO } from './Production.jsx'
@@ -42,7 +42,7 @@ export default function MRP() {
       <Card title={`Planned orders — what to order and by when (${mrp.suggestions.length})`}>
         {mrp.suggestions.length === 0 ? <Empty icon="check" title="Everything is covered">Stock plus open orders cover every requirement in the horizon.</Empty> : <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Level</th><th className="num">Qty</th><th>Needed (week)</th><th className="num">Lead time</th><th>Order by</th><th>Action</th></tr></thead><tbody>
           {mrp.suggestions.map((s, k) => <tr key={k}>
-            <td>{s.item.name}<div className="small muted">{s.item.id} · {s.item.lot_rule}{s.item.lot_rule === 'FOQ' ? ` ${s.item.lot_qty}` : ''}</div></td><td>{s.level}</td>
+            <td><ItemName item={s.item} /><div className="small muted">{s.item.id} · {s.item.lot_rule}{s.item.lot_rule === 'FOQ' ? ` ${s.item.lot_qty}` : ''}</div></td><td>{s.level}</td>
             <td className="num"><b>{qtyFmt(s.qty, s.item.uom)}</b></td><td className="nowrap">{dshort(s.needDate)} (wk {s.week})</td><td className="num">{s.item.lead_time_days} d</td>
             <td>{s.late ? <><Badge tone="red">Past due</Badge> <span className="neg">{dfmt(s.orderBy)}</span></> : dfmt(s.orderBy)}</td>
             <td>{s.action === 'Work order'
@@ -58,7 +58,7 @@ export default function MRP() {
           {records.filter(r => r.level === level).map(r => (
             <Card key={r.item.id}>
               <div className="mrp-head">
-                <h2>{r.item.name}</h2>
+                <h2><ItemName item={r.item} /></h2>
                 <div className="mrp-meta">
                   <Badge>{r.item.id}</Badge><Badge tone="blue">LT = {r.item.lead_time_days} d → {r.ltWeeks} wk</Badge>
                   <Badge tone="brand">Q: {r.item.lot_rule}{r.item.lot_rule === 'FOQ' ? ' ' + r.item.lot_qty : ''}</Badge>

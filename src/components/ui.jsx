@@ -116,6 +116,12 @@ export function Btn({ children, onClick, kind = 'secondary', busyText, disabled,
   return <button type={type} title={title} className={`btn ${kind} ${small ? 'small' : ''}`} disabled={disabled || busy} onClick={run}>{busy ? (busyText || 'Working…') : children}</button>
 }
 
+// Fabric color swatch (item.color holds the company's Spanish color name)
+const SWATCHES = { NEGRO: '#1b1b20', HUESO: '#e9dfc8', LILA: '#b9a0cf', CRISTAL: '#bfe0ea', SURTIDO: 'linear-gradient(135deg,#1b1b20 0 33%,#e9dfc8 33% 66%,#b9a0cf 66%)' }
+const COLOR_EN = { NEGRO: 'Black', HUESO: 'Bone', LILA: 'Lilac', CRISTAL: 'Crystal blue', SURTIDO: 'Assorted' }
+export const Swatch = ({ color }) => SWATCHES[color] ? <span className="swatch-chip" style={{ background: SWATCHES[color] }} title={COLOR_EN[color]} /> : null
+export const ItemName = ({ item }) => item ? <span className="item-name"><Swatch color={item.color} />{item.name}</span> : null
+
 // Opens a record when the URL has ?open=<id> (used by quick search), then removes the param.
 export function useOpenParam(onOpen) {
   const [params, setParams] = useSearchParams()
@@ -218,7 +224,7 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
         <div className="dropdown">
           {matches.map(i => (
             <button type="button" key={i.id} onClick={() => { onPick(i); setQ(''); ref.current?.focus() }}>
-              <span>{i.name}<span className="es">{i.name_es}</span></span>
+              <span><ItemName item={i} /><span className="es">{i.name_es}</span></span>
               <span className="muted small">{i.ean}{stockAt ? ` · ${qtyFmt(ix.onHand(i.id, stockAt), i.uom)} here` : ''}</span>
             </button>
           ))}
@@ -331,7 +337,7 @@ export function RipplePanel() {
         <table className="tbl compact"><tbody>
           {ripple.moves.map(m => {
             const it = ix.items.get(m.item_id)
-            return <tr key={m.id}><td>{it?.name}</td><td>{ix.locations.get(m.location_id)?.name}</td>
+            return <tr key={m.id}><td><ItemName item={it} /></td><td>{ix.locations.get(m.location_id)?.name}</td>
               <td className={'num ' + (m.qty < 0 ? 'neg' : 'pos')}>{m.qty > 0 ? '+' : ''}{qtyFmt(m.qty, it?.uom)}</td></tr>
           })}
         </tbody></table>

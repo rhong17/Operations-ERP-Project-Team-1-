@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars, useOpenParam, Barcode, Icon, Steps, userName } from '../components/ui.jsx'
+import { Page, Card, Field, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, Stat, DateRange, Bars, useOpenParam, Barcode, Icon, Steps, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, num, pct, materialCheck, productionReport, todayLima, addDays, toLimaInput, fromLimaInput, groupBy, sum, limaDate } from '../lib/calc.js'
 import { Transfer } from './Inventory.jsx'
 import { NewPO } from './Purchasing.jsx'
@@ -47,7 +47,7 @@ function Orders() {
     <Card>
       {list.length === 0 ? <Empty icon="scissors" title={filter === 'open' ? 'No open work orders' : 'No work orders here'} action={<button className="btn primary small" onClick={() => setCreating(true)}>+ New work order</button>}>Create one here, or from a suggestion on the MRP page.</Empty> : <div className="tbl-wrap"><table className="tbl"><thead><tr><th>WO</th><th>Item</th><th className="num">Qty started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th>Due</th><th>Start → finish</th><th className="num">Unit cost</th><th>Status</th></tr></thead><tbody>
         {list.map(w => <tr key={w.id} className={'click ' + (w.status === 'cancelled' ? 'dim' : '')} onClick={() => setOpenId(w.id)}>
-          <td><b>{w.id}</b></td><td>{ix.items.get(w.item_id)?.name}</td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good ?? ''}</td><td className="num">{w.qty_scrap || ''}</td><td className="num">{w.qty_rework || ''}</td>
+          <td><b>{w.id}</b></td><td><ItemName item={ix.items.get(w.item_id)} /></td><td className="num">{w.qty_planned}</td><td className="num">{w.qty_good ?? ''}</td><td className="num">{w.qty_scrap || ''}</td><td className="num">{w.qty_rework || ''}</td>
           <td className="nowrap">{dfmt(w.due_date)}</td><td className="small">{w.started_at ? dt(w.started_at) : ''}{w.finished_at && w.status === 'completed' ? ' → ' + dt(w.finished_at) : ''}</td>
           <td className="num">{w.unit_cost ? money(w.unit_cost) : ''}</td>
           <td className="nowrap"><StatusBadge status={w.status} />{['planned', 'in_progress'].includes(w.status) && w.due_date < today && <> <Badge tone="red">late</Badge></>}</td></tr>)}
@@ -71,7 +71,7 @@ export function MaterialCheck({ itemId, qty, loc, onTransfer, onBuy }) {
   const rows = materialCheck(db, ix, itemId, qty, loc)
   if (!rows.length) return null
   return <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Required (incl. scrap %)</th><th className="num">At {ix.locations.get(loc)?.name}</th><th className="num">Short</th><th></th></tr></thead><tbody>
-    {rows.map(r => <tr key={r.component.id}><td>{r.component.name}</td><td className="num">{qtyFmt(r.need, r.component.uom)}</td><td className="num">{qtyFmt(r.here, r.component.uom)}</td>
+    {rows.map(r => <tr key={r.component.id}><td><ItemName item={r.component} /></td><td className="num">{qtyFmt(r.need, r.component.uom)}</td><td className="num">{qtyFmt(r.here, r.component.uom)}</td>
       <td className={'num ' + (r.short ? 'neg' : 'pos')}>{r.short ? qtyFmt(r.short, r.component.uom) : '✓'}</td>
       <td>{r.short > 0 && <div className="row gap">
         {r.elsewhere > 0 && onTransfer && <button className="btn small" onClick={() => onTransfer(r)}>Transfer {qtyFmt(Math.min(r.short, r.elsewhere), r.component.uom)}</button>}
@@ -164,7 +164,7 @@ function WODetail({ id, onClose }) {
       </> : w.status === 'cancelled' && !comps.some(c => Number(c.qty_issued) > 0) ? <p className="muted">Cancelled before materials were issued — no stock or accounting was affected.</p> : <>
         <h3>{w.status === 'cancelled' ? 'Components issued, then returned to stock when cancelled' : `Components issued (bill of materials × ${w.qty_planned})`}</h3>
         <table className="tbl compact"><thead><tr><th>Component</th><th className="num">Issued</th><th className="num">Unit cost</th><th className="num">Value</th>{w.status !== 'cancelled' && <th className="num" title="What is on the shelf at this location right now, after the issue">Now at {here}</th>}</tr></thead><tbody>
-          {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td>{it?.name}</td><td className="num">{qtyFmt(c.qty_issued, it?.uom)}</td><td className="num">{c.unit_cost != null ? money(c.unit_cost) : ''}</td><td className="num">{c.unit_cost != null ? money(c.qty_issued * c.unit_cost) : ''}</td>
+          {comps.map(c => { const it = ix.items.get(c.item_id); return <tr key={c.id}><td><ItemName item={it} /></td><td className="num">{qtyFmt(c.qty_issued, it?.uom)}</td><td className="num">{c.unit_cost != null ? money(c.unit_cost) : ''}</td><td className="num">{c.unit_cost != null ? money(c.qty_issued * c.unit_cost) : ''}</td>
             {w.status !== 'cancelled' && <td className="num">{qtyFmt(ix.onHand(c.item_id, w.location_id), it?.uom)}</td>}</tr> })}
         </tbody></table>
       </>}
@@ -311,7 +311,7 @@ function Report() {
     </div>
     <Card title="By item">
       <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Item</th><th className="num">WOs</th><th className="num">Started</th><th className="num">Good</th><th className="num">Scrap</th><th className="num">Rework</th><th className="num">Yield</th></tr></thead><tbody>
-        {byItem.map(x => <tr key={x.item.id}><td>{x.item.name}</td><td className="num">{x.n}</td><td className="num">{x.started}</td><td className="num">{x.good}</td><td className="num">{x.scrap}</td><td className="num">{x.rework}</td><td className="num">{pct(x.good / x.started)}</td></tr>)}
+        {byItem.map(x => <tr key={x.item.id}><td><ItemName item={x.item} /></td><td className="num">{x.n}</td><td className="num">{x.started}</td><td className="num">{x.good}</td><td className="num">{x.scrap}</td><td className="num">{x.rework}</td><td className="num">{pct(x.good / x.started)}</td></tr>)}
       </tbody></table></div>
     </Card>
     <Card title={`Work orders finished ${dfmt(from)} – ${dfmt(to)}`}>

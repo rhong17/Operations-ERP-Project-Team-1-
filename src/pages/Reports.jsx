@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, DateRange, Bars, Tabs, StatusBadge, Badge, Empty } from '../components/ui.jsx'
+import { Page, Card, DateRange, Bars, Tabs, StatusBadge, Badge, Empty, ItemName } from '../components/ui.jsx'
 import { money, num, pct, dshort, dfmt, todayLima, salesLinesInRange, salesByPeriod, topItems, inventoryPolicy, supplierScorecard, groupBy, sum, qtyFmt } from '../lib/calc.js'
 
 export default function Reports() {
@@ -45,7 +45,7 @@ export default function Reports() {
       {tab === 'low' && <Card title="Low stock with suggested order quantities and order-by dates" actions={<Link className="btn small" to="/purchasing?tab=replenish">Open replenishment</Link>}>
         {policy.filter(p => p.belowRop).length === 0 ? <Empty icon="check">No items at or below their reorder point.</Empty> :
           <table className="tbl"><thead><tr><th>Item</th><th className="num">On hand</th><th className="num">On order</th><th className="num">Committed</th><th className="num">ROP</th><th className="num">Suggested qty</th><th>Order by</th><th>Source</th></tr></thead><tbody>
-            {policy.filter(p => p.belowRop).sort((a, b) => a.orderBy.localeCompare(b.orderBy)).map(p => <tr key={p.item.id}><td>{p.item.name}</td><td className="num">{qtyFmt(p.onHand, p.item.uom)}</td><td className="num">{num(p.onOrder, 1)}</td><td className="num">{num(p.committed, 1)}</td><td className="num">{num(p.rop, 1)}</td><td className="num"><b>{qtyFmt(p.suggest, p.item.uom)}</b></td>
+            {policy.filter(p => p.belowRop).sort((a, b) => a.orderBy.localeCompare(b.orderBy)).map(p => <tr key={p.item.id}><td><ItemName item={p.item} /></td><td className="num">{qtyFmt(p.onHand, p.item.uom)}</td><td className="num">{num(p.onOrder, 1)}</td><td className="num">{num(p.committed, 1)}</td><td className="num">{num(p.rop, 1)}</td><td className="num"><b>{qtyFmt(p.suggest, p.item.uom)}</b></td>
               <td className={p.orderBy <= todayLima() ? 'neg' : ''}>{p.orderBy <= todayLima() ? 'Today' : dfmt(p.orderBy)}</td><td>{p.item.make_or_buy === 'Make' ? 'Make (work order)' : ix.suppliers.get(p.item.supplier_id)?.name}</td></tr>)}
           </tbody></table>}
       </Card>}
@@ -54,7 +54,7 @@ export default function Reports() {
         <div className="grid g2">{[...db.locations].sort((a, b) => a.sort - b.sort).map(l => {
           const rs = db.stock.filter(s => s.location_id === l.id && s.qty > 0)
           return <div key={l.id}><h3>{l.name} — {money(sum(rs, s => s.qty * ix.items.get(s.item_id).avg_cost))}</h3>
-            <table className="tbl compact"><tbody>{rs.map(s => { const it = ix.items.get(s.item_id); return <tr key={s.item_id}><td>{it.name}</td><td className="num">{qtyFmt(s.qty, it.uom)}</td></tr> })}</tbody></table>
+            <table className="tbl compact"><tbody>{rs.map(s => { const it = ix.items.get(s.item_id); return <tr key={s.item_id}><td><ItemName item={it} /></td><td className="num">{qtyFmt(s.qty, it.uom)}</td></tr> })}</tbody></table>
             {!rs.length && <p className="muted">Empty</p>}</div>
         })}</div>
       </Card>}

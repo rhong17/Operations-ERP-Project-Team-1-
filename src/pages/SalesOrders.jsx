@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, useOpenParam, Steps, userName } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Modal, Btn, StatusBadge, Tabs, Empty, Badge, useOpenParam, Steps, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dfmt, dt, etaFor, onOrder, setting, todayLima, addDays, round, allocations } from '../lib/calc.js'
 import { netPrice } from './POS.jsx'
 
@@ -71,7 +71,7 @@ function NewOrder({ onClose, onCreated }) {
       <div style={{ margin: '12px 0' }}><ItemSearch onPick={add} filter={i => i.item_type !== 'Component'} stockAt={f.location_id} /></div>
       {lines.length > 0 && <table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand at location</th><th className="num">Available (after open orders)</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Disc %</th><th></th></tr></thead><tbody>
         {lines.map((l, i) => (
-          <tr key={l.item.id}><td>{l.item.name}</td><td className="num">{qtyFmt(ix.onHand(l.item.id, f.location_id), l.item.uom)}</td>
+          <tr key={l.item.id}><td><ItemName item={l.item} /></td><td className="num">{qtyFmt(ix.onHand(l.item.id, f.location_id), l.item.uom)}</td>
             <td className={'num ' + (l.qty > alloc.freeAt(l.item.id, f.location_id) ? 'neg' : '')}>{qtyFmt(alloc.freeAt(l.item.id, f.location_id), l.item.uom)}{l.qty > alloc.freeAt(l.item.id, f.location_id) && <div className="small">{qtyFmt(l.qty - alloc.freeAt(l.item.id, f.location_id))} will be backordered</div>}</td>
             <td className="num"><input type="number" min="1" value={l.qty} onChange={e => setLines(ls => ls.map((x, k) => k === i ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} /></td>
             <td className="num"><input type="number" step="0.01" value={l.price} onChange={e => setLines(ls => ls.map((x, k) => k === i ? { ...x, price: Number(e.target.value) } : x))} /></td>
@@ -128,7 +128,7 @@ export function OrderDetail({ id, onClose }) {
           const shipLoc = loc || s.location_id
           const short = !open ? 0 : shipLoc === s.location_id ? (alloc.lines.get(l.id)?.short ?? open) : Math.max(0, open - alloc.freeAt(l.item_id, shipLoc))
           const eta = short > 0 ? etaFor(l.item_id, short, db, ix, todayLima(), orders) : null
-          return <tr key={l.id}><td>{it?.name}<div className="muted small">{it?.ean}</div></td><td className="num">{qtyFmt(l.qty, it?.uom)}</td><td className="num">{qtyFmt(l.qty_shipped)}</td>
+          return <tr key={l.id}><td><ItemName item={it} /><div className="muted small mono">{it?.ean}</div></td><td className="num">{qtyFmt(l.qty, it?.uom)}</td><td className="num">{qtyFmt(l.qty_shipped)}</td>
             <td className="num">{l.qty_returned ? qtyFmt(l.qty_returned) : ''}</td>
             <td className={'num ' + (short ? 'neg' : '')}>{short ? qtyFmt(short) : open ? <span className="muted">in stock</span> : ''}</td>
             <td>{eta ? <span title={eta.basis}>{dfmt(eta.date)} <span className="muted small">({eta.basis})</span></span> : ''}</td>

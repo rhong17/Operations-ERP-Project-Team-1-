@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../lib/data.jsx'
-import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode, userName } from '../components/ui.jsx'
+import { Page, Card, Field, ItemSearch, LocationSelect, Btn, Empty, Badge, Tabs, Barcode, userName, ItemName } from '../components/ui.jsx'
 import { money, qtyFmt, dt, dfmt, etaFor, onOrder, todayLima, inventoryPolicy, num, allocations } from '../lib/calc.js'
 
 export const ADJ_REASONS = ['Cycle count', 'Damaged', 'Lost / stolen', 'Found', 'Sample / display', 'Data correction', 'Scrap from quality hold']
@@ -54,7 +54,7 @@ function OnHand() {
           const p = policy.get(i.id), tot = ix.onHand(i.id), com = alloc.committedOf(i.id), avl = tot - com
           const dec = ['kg', 'cone'].includes(i.uom) ? 2 : 0   // fabric and thread show decimals so small changes are visible
           return <tr key={i.id}>
-            <td>{i.name}<span className="es">{i.name_es}</span></td><td className="small">{i.ean}<div className="muted">{i.id}</div></td>
+            <td><ItemName item={i} /><span className="es">{i.name_es}</span></td><td className="small mono">{i.ean}<div className="muted">{i.id}</div></td>
             {locs.map(l => { const v = ix.onHand(i.id, l.id); return <td key={l.id} className="num">{v ? num(v, dec) : <span className="zero">0</span>}</td> })}
             <td className="num"><b>{qtyFmt(tot, i.uom)}</b> {p?.belowRop && <Badge tone="amber">≤ ROP</Badge>}</td>
             <td className="num">{com ? num(com, dec) : <span className="zero">0</span>}</td>
