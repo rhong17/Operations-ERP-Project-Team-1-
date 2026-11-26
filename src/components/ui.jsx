@@ -267,7 +267,7 @@ export function scanFeedback(ok) {
   } catch { /* audio not available */ }
 }
 
-// Phone / laptop camera scanning (Code 128, EAN, UPC, QR) using ZXing.
+// Phone / laptop camera scanning (Code 128, EAN, UPC, QR).
 // onResult(code) returns { ok, item?, text? } (or true/false).
 // continuous = keep the camera open and keep a running tally (POS); otherwise close after one good scan.
 export function CameraScanner({ onResult, onClose, continuous = false, title = 'Scan barcode' }) {
@@ -280,6 +280,8 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
   const [status, setStatus] = useState({ kind: 'idle', text: 'Point the camera at a barcode — it scans automatically.' })
   const [tally, setTally] = useState([])             // [{ key, item, label, count }]
   const [sound, setSound] = useState(() => { try { return localStorage.getItem('scanSound') !== 'off' } catch { return true } })
+  const [engine, setEngine] = useState(null)        // 'fast' (built-in detector) | 'standard' (WebAssembly engine)
+  const [torch, setTorch] = useState(null)          // { on, track } when the camera has a flashlight
   const total = tally.reduce((a, t) => a + t.count, 0)
 
   useEffect(() => {
@@ -287,12 +289,59 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
   }, [])
   useEffect(() => {
-    let controls, stopped = false, lastCode = '', lastAt = 0, flashTimer
+    let stream, raf, stopped = false, lastCode = '', lastAt = 0, flashTimer
     ;(async () => {
       try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        const reader = new BrowserMultiFormatReader()
-        controls = await reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, video.current, res => { if (res) handle(res.getText()) })
+        // Sharper picture = faster reads: ask for HD from the back camera with continuous focus.
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
+          facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 },
+          advanced: [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }] } })
+        if (stopped) { stream.getTracks().forEach(t => t.stop()); return }
+        const track = stream.getVideoTracks()[0]
+        try { if (track.getCapabilities?.().focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }) } catch { /* not supported */ }
+        setTorch(track.getCapabilities?.().torch ? { on: false, track } : null)
+        video.current.srcObject = stream
+        await video.current.play().catch(() => {})
+        // Barcode engine: the browser's built-in detector when it reads Code 128 (Chrome on Android / Mac /
+        // Windows), otherwise the same API backed by zxing-cpp compiled to WebAssembly (Safari, iPhone,
+        // Firefox). The .wasm file is bundled with the site, so nothing loads from outside.
+        const fmts = ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code']
+        const native = 'BarcodeDetector' in window ? (await window.BarcodeDetector.getSupportedFormats().catch(() => [])).filter(f => fmts.includes(f)) : []
+        let detector
+        if (native.includes('code_128')) { detector = new window.BarcodeDetector({ formats: native }); setEngine('fast') }
+        else {
+          const [{ BarcodeDetector: Wasm, setZXingModuleOverrides }, { default: wasmUrl }] = await Promise.all([
+            import('barcode-detector/ponyfill'), import('zxing-wasm/reader/zxing_reader.wasm?url')])
+          setZXingModuleOverrides({ locateFile: (path, prefix) => path.endsWith('.wasm') ? wasmUrl : prefix + path })
+          detector = new Wasm({ formats: fmts }); setEngine('standard')
+        }
+        if (stopped) return
+        // For the WebAssembly engine, every other try uses a grey, contrast-boosted copy of the frame:
+        // rescues dim, slightly blurred or tilted labels (done in plain JS so older Safari works too).
+        const boostCanvas = document.createElement('canvas'), bctx = boostCanvas.getContext('2d', { willReadFrequently: true })
+        const boosted = v => {
+          const scale = Math.min(1, 960 / v.videoWidth)
+          boostCanvas.width = Math.round(v.videoWidth * scale); boostCanvas.height = Math.round(v.videoHeight * scale)
+          bctx.drawImage(v, 0, 0, boostCanvas.width, boostCanvas.height)
+          const img = bctx.getImageData(0, 0, boostCanvas.width, boostCanvas.height), d = img.data
+          for (let i = 0; i < d.length; i += 4) {
+            const g = Math.max(0, Math.min(255, (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] - 128) * 1.7 + 128))
+            d[i] = d[i + 1] = d[i + 2] = g
+          }
+          return img
+        }
+        const wasmEngine = !native.includes('code_128')
+        let busy = false, lastRun = 0, flip = false
+        const tick = async t => {
+          if (stopped) return
+          raf = requestAnimationFrame(tick)
+          const v = video.current
+          if (busy || t - lastRun < 70 || !v || v.readyState < 2 || !v.videoWidth) return      // up to ~14 reads per second
+          busy = true; lastRun = t; flip = !flip
+          try { const found = await detector.detect(wasmEngine && flip ? boosted(v) : v); if (found[0]?.rawValue) handle(found[0].rawValue) } catch { /* frame not ready */ }
+          busy = false
+        }
+        raf = requestAnimationFrame(tick)
         if (!stopped) setReady(true)
       } catch (e) {
         const denied = /denied|NotAllowed|Permission/i.test(`${e.name} ${e.message}`)
@@ -305,7 +354,9 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
     function handle(code) {
           if (stopped) return
           const now = Date.now()
-          if (code === lastCode && now - lastAt < 1600) return      // same label still in view: don't double-count
+          // Same label still in front of the camera: keep ignoring it. It only counts again after it has
+          // been out of view for a moment (move it away and back to add another one).
+          if (code === lastCode && now - lastAt < 1200) { lastAt = now; return }
           lastCode = code; lastAt = now
           let r = cb.current(code); if (typeof r === 'boolean') r = { ok: r }
           const ok = !!r?.ok
@@ -323,7 +374,7 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           } else setStatus({ kind: 'bad', text: r?.text || `Unknown barcode ${code}` })
     }
     if (import.meta.env.DEV) window.__scanTest = handle      // dev only: simulate a camera scan without a camera
-    return () => { stopped = true; clearTimeout(flashTimer); controls?.stop(); if (import.meta.env.DEV) delete window.__scanTest }
+    return () => { stopped = true; clearTimeout(flashTimer); cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); if (import.meta.env.DEV) delete window.__scanTest }
   }, [continuous])
 
   const toggleSound = () => { const on = !sound; setSound(on); try { localStorage.setItem('scanSound', on ? 'on' : 'off') } catch { /* ignore */ } }
@@ -334,6 +385,7 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           <b>{title}</b>
           {continuous && <span className="scan-count">{total} scanned</span>}
           <span className="spacer" />
+          {torch && <button type="button" className="scan-iconbtn" onClick={async () => { try { await torch.track.applyConstraints({ advanced: [{ torch: !torch.on }] }); setTorch({ ...torch, on: !torch.on }) } catch { /* no torch */ } }}>{torch.on ? 'Light off' : 'Light on'}</button>}
           <button type="button" className="scan-iconbtn" onClick={toggleSound} title={sound ? 'Sound on' : 'Sound off'}>{sound ? 'Sound on' : 'Sound off'}</button>
           <button type="button" className="scan-iconbtn" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -354,7 +406,7 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           <li key={t.key} className={k === 0 && flash === 'ok' ? 'fresh' : ''}>{t.item ? <ItemName item={t.item} /> : <span>{t.label}</span>}<b>× {t.count}</b></li>
         ))}</ul>}
         <div className="scan-foot">
-          <span className="muted small">Hold the label 10–20 cm from the camera, flat and well lit.</span>
+          <span className="muted small">{continuous ? 'To add another of the same item, move the label away and back.' : 'Hold the label 10–20 cm away, flat and well lit.'}{engine === 'fast' ? ' · Fast scan' : ''}</span>
           <button type="button" className="btn primary" onClick={onClose}>{continuous ? 'Done' : 'Cancel'}</button>
         </div>
       </div>
@@ -365,7 +417,9 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
 export function Barcode({ value, height = 44, width = 1.6, fontSize = 12 }) {
   const ref = useRef()
   useEffect(() => {
-    try { JsBarcode(ref.current, value, { format: 'CODE128', height, width, fontSize, margin: 4 }) } catch { /* invalid */ }
+    // Margin = the blank "quiet zone" scanners need on each side (Code 128 standard: 10 bar widths).
+    // Without it, phone cameras (especially iPhone / Safari) often fail when the label sits on a dark shirt.
+    try { JsBarcode(ref.current, value, { format: 'CODE128', height, width, fontSize, margin: Math.ceil(width * 11), background: '#ffffff' }) } catch { /* invalid */ }
   }, [value, height, width, fontSize])
   return <svg ref={ref} className="barcode" />
 }
