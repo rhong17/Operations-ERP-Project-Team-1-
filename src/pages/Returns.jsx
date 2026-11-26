@@ -105,7 +105,7 @@ export default function Returns() {
       </>}
       {tab === 'history' && <ReturnHistory />}
       {tab === 'qh' && <QualityHold />}
-      {cam && <CameraScanner onClose={() => setCam(false)} onResult={code => { setSaleId(code); setCam(false) }} />}
+      {cam && <CameraScanner title="Scan receipt barcode" onClose={() => setCam(false)} onResult={code => { const ok = ix.sales.has(code); if (ok) setSaleId(code); return ok ? { ok: true, text: `Receipt ${code} found` } : { ok: false, text: `No sale ${code}` } }} />}
     </Page>
   )
 }

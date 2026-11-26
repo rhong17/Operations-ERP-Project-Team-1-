@@ -205,16 +205,26 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
     const s = q.trim().toLowerCase(); if (!s) return []
     return list.filter(i => i.ean === s || i.name.toLowerCase().includes(s) || (i.name_es || '').toLowerCase().includes(s) || (i.sku || '').toLowerCase().includes(s) || i.id.toLowerCase() === s).slice(0, 8)
   }, [q, list])
-  const pickCode = code => {
-    const c = String(code).trim()
-    const hit = list.find(i => i.ean === c) || list.find(i => i.id.toLowerCase() === c.toLowerCase())
-    if (hit) { onPick(hit); setQ(''); return true }
-    toast(`No item with barcode ${c}`, 'error'); return false
+  const [last, setLast] = useState(null)        // { item, n } — "✓ Added …" confirmation under the box
+  const [pulse, setPulse] = useState(null)      // 'ok' | 'bad' flash on the scan box
+  const lastTimer = useRef(), pulseTimer = useRef()
+  useEffect(() => () => { clearTimeout(lastTimer.current); clearTimeout(pulseTimer.current) }, [])
+  const confirm = (item, ok = true) => {
+    clearTimeout(pulseTimer.current); setPulse(ok ? 'ok' : 'bad'); pulseTimer.current = setTimeout(() => setPulse(null), 700)
+    if (!ok) return
+    clearTimeout(lastTimer.current); setLast(l => ({ item, n: (l?.n || 0) + 1 })); lastTimer.current = setTimeout(() => setLast(null), 2600)
+  }
+  const findCode = code => { const c = String(code).trim(); return list.find(i => i.ean === c) || list.find(i => i.id.toLowerCase() === c.toLowerCase()) }
+  const pickCode = code => {   // USB scanner or typed barcode + Enter
+    const hit = findCode(code)
+    scanFeedback(!!hit)
+    if (hit) { onPick(hit); setQ(''); confirm(hit); return true }
+    confirm(null, false); toast(`No item with barcode ${String(code).trim()}`, 'error'); return false
   }
   return (
     <div className="item-search">
       <div className="row gap">
-        <input ref={ref} autoFocus={autoFocus} value={q} placeholder={placeholder} onChange={e => setQ(e.target.value)}
+        <input ref={ref} autoFocus={autoFocus} value={q} placeholder={placeholder} onChange={e => setQ(e.target.value)} className={pulse ? 'scan-pulse-' + pulse : ''}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); if (/^\d{6,}$/.test(q.trim())) pickCode(q); else if (matches[0]) { onPick(matches[0]); setQ('') } }
           }} />
@@ -223,44 +233,132 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
       {matches.length > 0 && (
         <div className="dropdown">
           {matches.map(i => (
-            <button type="button" key={i.id} onClick={() => { onPick(i); setQ(''); ref.current?.focus() }}>
+            <button type="button" key={i.id} onClick={() => { onPick(i); setQ(''); confirm(i); ref.current?.focus() }}>
               <span><ItemName item={i} /><span className="es">{i.name_es}</span></span>
               <span className="muted small">{i.ean}{stockAt ? ` · ${qtyFmt(ix.onHand(i.id, stockAt), i.uom)} here` : ''}</span>
             </button>
           ))}
         </div>
       )}
-      {cam && <CameraScanner onClose={() => setCam(false)} onResult={code => { if (pickCode(code)) setCam(false) }} />}
+      {last && <div className="scan-added" key={last.n}><span className="scan-tick">✓</span> Added <ItemName item={last.item} /></div>}
+      {cam && <CameraScanner continuous title="Scan items" onClose={() => { setCam(false); ref.current?.focus() }}
+        onResult={code => { const hit = findCode(code); if (hit) { onPick(hit); confirm(hit) } return hit ? { ok: true, item: hit } : { ok: false, text: `No item with barcode ${code}` } }} />}
     </div>
   )
 }
 
-// Phone / laptop camera scanning (Code 128, EAN, UPC, QR) using ZXing
-export function CameraScanner({ onResult, onClose }) {
+// Scan feedback: a short beep (Web Audio, no sound files) + a vibration on phones.
+// Sound can be switched off from the scanner window; the choice is remembered on this device.
+let audioCtx = null
+export function scanFeedback(ok) {
+  try { navigator.vibrate?.(ok ? 40 : [70, 50, 70]) } catch { /* not supported */ }
+  try { if (localStorage.getItem('scanSound') === 'off') return } catch { /* storage blocked */ }
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)()
+    const t = audioCtx.currentTime
+    const tone = (freq, from, len, type, vol) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain()
+      o.type = type; o.frequency.value = freq
+      g.gain.setValueAtTime(0.0001, t + from); g.gain.exponentialRampToValueAtTime(vol, t + from + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + from + len)
+      o.connect(g).connect(audioCtx.destination); o.start(t + from); o.stop(t + from + len + 0.02)
+    }
+    if (ok) { tone(1320, 0, 0.09, 'sine', 0.16); tone(1760, 0.07, 0.11, 'sine', 0.13) }   // bright two-note "beep-beep"
+    else tone(170, 0, 0.32, 'square', 0.07)                                                 // low buzz
+  } catch { /* audio not available */ }
+}
+
+// Phone / laptop camera scanning (Code 128, EAN, UPC, QR) using ZXing.
+// onResult(code) returns { ok, item?, text? } (or true/false).
+// continuous = keep the camera open and keep a running tally (POS); otherwise close after one good scan.
+export function CameraScanner({ onResult, onClose, continuous = false, title = 'Scan barcode' }) {
   const video = useRef()
   const cb = useRef(onResult); cb.current = onResult
+  const closeRef = useRef(onClose); closeRef.current = onClose
   const [err, setErr] = useState(null)
+  const [ready, setReady] = useState(false)
+  const [flash, setFlash] = useState(null)           // 'ok' | 'bad' | null
+  const [status, setStatus] = useState({ kind: 'idle', text: 'Point the camera at a barcode — it scans automatically.' })
+  const [tally, setTally] = useState([])             // [{ key, item, label, count }]
+  const [sound, setSound] = useState(() => { try { return localStorage.getItem('scanSound') !== 'off' } catch { return true } })
+  const total = tally.reduce((a, t) => a + t.count, 0)
+
   useEffect(() => {
-    let controls, stopped = false, last = ''
+    const k = e => e.key === 'Escape' && closeRef.current?.()
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
+  }, [])
+  useEffect(() => {
+    let controls, stopped = false, lastCode = '', lastAt = 0, flashTimer
     ;(async () => {
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const reader = new BrowserMultiFormatReader()
-        controls = await reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, video.current, res => {
-          if (res && !stopped) {
-            const t = res.getText()
-            if (t !== last) { last = t; navigator.vibrate?.(60); cb.current(t) }
-          }
-        })
-      } catch (e) { setErr(e.message || 'Camera not available. Allow camera access, or use a USB scanner / type the code.') }
+        controls = await reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, video.current, res => { if (res) handle(res.getText()) })
+        if (!stopped) setReady(true)
+      } catch (e) {
+        const denied = /denied|NotAllowed|Permission/i.test(`${e.name} ${e.message}`)
+        const missing = /NotFound|Overconstrained|no camera|Requested device not found/i.test(`${e.name} ${e.message}`)
+        setErr(denied ? 'Camera access is blocked. Click the camera icon in the address bar and choose Allow, then try again — or use a USB scanner / type the code.'
+          : missing ? 'No camera found on this device. Use a USB scanner or type the barcode number instead.'
+          : 'The camera could not start. Use a USB scanner or type the barcode number instead.')
+      }
     })()
-    return () => { stopped = true; controls?.stop() }
-  }, [])
+    function handle(code) {
+          if (stopped) return
+          const now = Date.now()
+          if (code === lastCode && now - lastAt < 1600) return      // same label still in view: don't double-count
+          lastCode = code; lastAt = now
+          let r = cb.current(code); if (typeof r === 'boolean') r = { ok: r }
+          const ok = !!r?.ok
+          scanFeedback(ok)
+          clearTimeout(flashTimer); setFlash(ok ? 'ok' : 'bad'); flashTimer = setTimeout(() => setFlash(null), ok ? 650 : 900)
+          if (ok) {
+            const label = r.text || r.item?.name || code
+            setStatus({ kind: 'ok', text: continuous ? `Added ${label}` : label, item: r.item })
+            if (continuous) setTally(t => {
+              const key = r.item?.id || code, i = t.findIndex(x => x.key === key)
+              const next = i >= 0 ? t.map((x, j) => j === i ? { ...x, count: x.count + 1 } : x) : [...t, { key, item: r.item, label, count: 1 }]
+              return [next.find(x => x.key === key), ...next.filter(x => x.key !== key)]   // latest on top
+            })
+            else { stopped = true; setTimeout(() => closeRef.current?.(), 700) }
+          } else setStatus({ kind: 'bad', text: r?.text || `Unknown barcode ${code}` })
+    }
+    if (import.meta.env.DEV) window.__scanTest = handle      // dev only: simulate a camera scan without a camera
+    return () => { stopped = true; clearTimeout(flashTimer); controls?.stop(); if (import.meta.env.DEV) delete window.__scanTest }
+  }, [continuous])
+
+  const toggleSound = () => { const on = !sound; setSound(on); try { localStorage.setItem('scanSound', on ? 'on' : 'off') } catch { /* ignore */ } }
   return (
-    <Modal title="Scan with camera" onClose={onClose}>
-      {err ? <p className="error-text">{err}</p> : <p className="muted">Point the camera at the barcode label. It scans automatically.</p>}
-      <video ref={video} className="scanner-video" muted playsInline />
-    </Modal>
+    <div className="scan-bg" onMouseDown={e => e.target === e.currentTarget && onClose?.()}>
+      <div className={'scan' + (flash ? ' ' + flash : '')} role="dialog" aria-label={title}>
+        <div className="scan-head">
+          <b>{title}</b>
+          {continuous && <span className="scan-count">{total} scanned</span>}
+          <span className="spacer" />
+          <button type="button" className="scan-iconbtn" onClick={toggleSound} title={sound ? 'Sound on' : 'Sound off'}>{sound ? 'Sound on' : 'Sound off'}</button>
+          <button type="button" className="scan-iconbtn" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="scan-stage">
+          <video ref={video} className="scan-video" muted playsInline />
+          {!err && <div className={'scan-frame' + (ready ? ' live' : '')}><i /><i /><i /><i /><div className="scan-laser" /></div>}
+          {flash === 'ok' && <div className="scan-burst"><span>✓</span></div>}
+          {!ready && !err && <div className="scan-wait">Starting camera…</div>}
+        </div>
+        <div className={'scan-status ' + status.kind} aria-live="polite">
+          {err ? <span className="error-text">{err}</span> : <>
+            <span className="scan-dot" />
+            {status.item ? <ItemName item={status.item} /> : null}
+            <span>{status.item && status.kind === 'ok' ? (continuous ? 'added to the sale' : '') : status.text}</span>
+          </>}
+        </div>
+        {continuous && tally.length > 0 && <ul className="scan-list">{tally.map((t, k) => (
+          <li key={t.key} className={k === 0 && flash === 'ok' ? 'fresh' : ''}>{t.item ? <ItemName item={t.item} /> : <span>{t.label}</span>}<b>× {t.count}</b></li>
+        ))}</ul>}
+        <div className="scan-foot">
+          <span className="muted small">Hold the label 10–20 cm from the camera, flat and well lit.</span>
+          <button type="button" className="btn primary" onClick={onClose}>{continuous ? 'Done' : 'Cancel'}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
