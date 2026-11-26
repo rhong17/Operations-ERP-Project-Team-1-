@@ -241,7 +241,7 @@ export function ItemSearch({ onPick, filter, placeholder = 'Scan barcode or sear
         </div>
       )}
       {last && <div className="scan-added" key={last.n}><span className="scan-tick">✓</span> Added <ItemName item={last.item} /></div>}
-      {cam && <CameraScanner continuous title="Scan items" onClose={() => { setCam(false); ref.current?.focus() }}
+      {cam && <CameraScanner title="Scan item" onClose={() => { setCam(false); ref.current?.focus() }}
         onResult={code => { const hit = findCode(code); if (hit) { onPick(hit); confirm(hit) } return hit ? { ok: true, item: hit } : { ok: false, text: `No item with barcode ${code}` } }} />}
     </div>
   )
@@ -399,7 +399,7 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           {err ? <span className="error-text">{err}</span> : <>
             <span className="scan-dot" />
             {status.item ? <ItemName item={status.item} /> : null}
-            <span>{status.item && status.kind === 'ok' ? (continuous ? 'added to the sale' : '') : status.text}</span>
+            <span>{status.item && status.kind === 'ok' ? 'added' : status.text}</span>
           </>}
         </div>
         {continuous && tally.length > 0 && <ul className="scan-list">{tally.map((t, k) => (
