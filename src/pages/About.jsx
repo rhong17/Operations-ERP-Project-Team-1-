@@ -43,7 +43,7 @@ export default function About() {
             ['9. Financial reporting', '/finance', 'P&L, weighted-average valuation, turnover — live from the journal'],
             ['10. Reports', '/reports', 'sales by period, top items, low stock, inventory by location, supplier performance'],
             ['11. Customer-facing ERP', '/portal-preview', 'customer login, stock by location, pickup orders'],
-            ['12. Multi-user', '/settings', 'Supabase logins and realtime: every screen refreshes when anyone changes data'],
+            ['12. Multi-user', '/activity', 'one login per person; every screen refreshes within a second when anyone changes data; who\'s online in the top bar, live notices of teammates\' transactions, and an Activity log of who did what'],
             ['Wow', '/journal', 'transaction "ripple" panel, double-entry journal, explain-the-math popups'],
           ].map(([a, to, b]) => <tr key={a}><td><Link to={to}>{a}</Link></td><td>{b}</td></tr>)}
         </tbody></table>
