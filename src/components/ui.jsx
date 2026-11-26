@@ -439,8 +439,49 @@ export function Toasts() {
   const { toasts } = useData()
   const nav = useNavigate()
   return <div className="toasts">{toasts.map(t => <div key={t.id} className={'toast ' + t.tone}>
-    <span>{t.msg}</span>{t.to && <button className="toast-open" onClick={() => nav(t.to)}>Open →</button>}
+    {t.tone === 'live' && <span className="toast-live">Live</span>}<span>{t.msg}</span>{t.to && <button className="toast-open" onClick={() => nav(t.to)}>Open →</button>}
   </div>)}</div>
+}
+
+// Round initials badge for a person, colored consistently by their id
+const AVATAR_COLORS = ['#2f5d8a', '#6b4e9b', '#2f7d6b', '#a0522d', '#8a2f5d', '#4e6b2f', '#7a5c1e', '#2f6b8a']
+export function Avatar({ id = '', name = '', size = 26, title }) {
+  const ini = (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '?'
+  let h = 0; for (const ch of String(id || name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return <span className="avatar" title={title ?? name} style={{ width: size, height: size, fontSize: size * 0.4, background: AVATAR_COLORS[h % AVATAR_COLORS.length] }}>{ini}</span>
+}
+
+// Top bar: who else is signed in right now (staff only), and which page each person is on
+export function OnlineUsers({ pages = [] }) {
+  const { online } = useData()
+  const [open, setOpen] = useState(false)
+  const ref = useRef()
+  useEffect(() => {
+    if (!open) return
+    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    window.addEventListener('mousedown', close); return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  if (!online.length) return null
+  const pageName = path => pages.find(([to]) => to === path)?.[1] || (path === '/activity' ? 'Activity' : 'Dashboard')
+  const shown = online.slice(0, 4)
+  return (
+    <div className="online" ref={ref}>
+      <button type="button" className="online-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`${online.length} online`}>
+        <span className="online-stack">{shown.map(u => <Avatar key={u.id} id={u.id} name={u.name} size={24} title="" />)}</span>
+        {online.length > 4 && <span className="online-more">+{online.length - 4}</span>}
+        <span className="online-label">{online.length} online</span>
+      </button>
+      {open && <div className="online-menu">
+        <div className="online-head">Signed in now</div>
+        {online.map(u => <div className="online-row" key={u.id}>
+          <Avatar id={u.id} name={u.name} size={28} />
+          <div><b>{u.name}{u.me ? ' (you)' : ''}</b><div className="muted small">on {pageName(u.page)}{u.tabs > 1 ? ` · ${u.tabs} tabs` : ''}</div></div>
+          <span className="online-dot" />
+        </div>)}
+        <div className="muted small online-foot">Changes anyone makes show up on every screen within a second.</div>
+      </div>}
+    </div>
+  )
 }
 
 // Display name of the login that made a change ('' if unknown)

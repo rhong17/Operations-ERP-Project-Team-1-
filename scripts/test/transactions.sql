@@ -220,9 +220,18 @@ select pg_temp.ok(pg_temp.balanced(), 'ledger balanced at the end');
 select pg_temp.ok(pg_temp.gl_matches_stock(), 'ledger Inventory = stock × average cost (within S/1)');
 select pg_temp.ok((select count(*) from stock where qty < 0) = 0, 'no negative stock anywhere');
 
+-- multi-user activity log: every transaction says who did what
+select pg_temp.ok((select count(*) from activity) >= 10, 'transactions write activity lines');
+select pg_temp.ok((select count(*) from activity where user_id is null and summary not like 'reset%') = 0, 'every activity line records the user');
+select pg_temp.ok(exists(select 1 from activity where kind = 'sale' and summary like 'sold %× % at % · S/ %'), 'POS sale activity reads like "sold 2× … at … · S/ …"');
+select pg_temp.ok(exists(select 1 from activity where kind = 'production' and summary like 'completed WO-%: % good%'), 'work order completion is logged');
+select pg_temp.ok(exists(select 1 from activity a join profiles p on p.id = a.user_id where p.role = 'customer' and a.summary like 'placed a pickup order%'), 'portal order logged under the customer');
+select pg_temp.ok(not exists(select 1 from activity where summary ilike '%change-me%'), 'team code never written to the log');
+
 -- reset works
 select reset_demo();
 select pg_temp.ok((select count(*) from sales where not is_history) = 5, 'reset restores starting data');
 select pg_temp.ok((select role from profiles where email='staff@test.pe') = 'staff', 'logins survive reset');
 select pg_temp.ok(exists(select 1 from customers where id = 'CUS13'), 'portal customer re-linked after reset');
+select pg_temp.ok((select count(*) from activity) = 1 and (select summary from activity) = 'reset the demo data', 'reset clears the activity log');
 \echo ALL TESTS PASSED

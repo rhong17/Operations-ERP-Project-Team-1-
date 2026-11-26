@@ -83,6 +83,50 @@ begin
   end if;
 end $$;
 
+-- =====================================================================
+-- 12. MULTI-USER: ACTIVITY LOG
+-- Every transaction writes one plain-English line saying who did what.
+-- Feeds the Activity page and the live "a teammate just did X" notices.
+-- (Created here, not in 01, so it can be added without erasing data.)
+-- =====================================================================
+create table if not exists activity (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  user_id uuid default auth.uid(),
+  kind text not null,          -- sale, order, return, inventory, purchasing, production, master, admin
+  doc_id text,
+  summary text not null        -- e.g. "sold 2× Women's Tee · Black · M at Gamarra Store · S/ 70.80"
+);
+create index if not exists activity_at on activity (at desc);
+alter table activity enable row level security;
+drop policy if exists staff_read on activity;
+create policy staff_read on activity for select to authenticated using (is_staff());
+grant select on activity to authenticated;
+do $$ begin
+  alter publication supabase_realtime add table activity;
+exception when duplicate_object then null;
+end $$;
+
+create or replace function _log(p_kind text, p_doc text, p_summary text) returns void
+language sql security definer set search_path = public as $$
+  insert into activity(kind, doc_id, summary, user_id) values (p_kind, p_doc, p_summary, auth.uid());
+$$;
+create or replace function _iname(p_item text) returns text language sql stable security definer set search_path = public as $$
+  select coalesce(name_en, name) from items where id = p_item $$;
+create or replace function _lname(p_loc text) returns text language sql stable security definer set search_path = public as $$
+  select coalesce(name_en, name) from locations where id = p_loc $$;
+create or replace function _n(p numeric) returns text language sql immutable as $$ select trim_scale(round(p, 2))::text $$;
+create or replace function _money(p numeric) returns text language sql immutable as $$ select 'S/ ' || to_char(round(p, 2), 'FM999,999,990.00') $$;
+-- "2× Tee · Black · M, 1× Polo · White · L +3 more" for a sale or a PO
+create or replace function _lines_text(p_doc text) returns text
+language sql stable security definer set search_path = public as $$
+  with l as (
+    select _n(qty) || '× ' || _iname(item_id) t, row_number() over (order by id) n, count(*) over () c from sales_lines where sale_id = p_doc
+    union all
+    select _n(qty_ordered) || '× ' || _iname(item_id), row_number() over (order by id), count(*) over () from po_lines where po_id = p_doc)
+  select coalesce(string_agg(t, ', ' order by n) filter (where n <= 3), '') || case when max(c) > 3 then ' +' || (max(c) - 3) || ' more' else '' end from l
+$$;
+
 create or replace function _tax_rate(p_customer text) returns numeric
 language sql stable security definer set search_path = public as $$
   select case when coalesce((select igv_exempt from customers where id = p_customer), false)
@@ -168,6 +212,7 @@ begin
     g := g + s.gross; d := d + s.disc; t := t + s.tax; c := c + s.cost;
   end loop;
   perform _post_sale_gl(now(), v_id, g, d, t, c, 'POS sale');
+  perform _log('sale', v_id, 'sold ' || _lines_text(v_id) || ' at ' || _lname(v_loc) || ' · ' || _money(round(g-d,2)+round(t,2)));
   return jsonb_build_object('id', v_id, 'subtotal', round(g-d,2), 'discount', round(d,2), 'tax', round(t,2),
                             'total', round(g-d,2)+round(t,2), 'cost', round(c,2));
 end $$;
@@ -196,9 +241,12 @@ end $$;
 
 create or replace function create_sales_order(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
+declare v_id text;
 begin
   perform _require_staff();
-  return jsonb_build_object('id', _create_order(p, nullif(p->>'customer_id',''), coalesce(p->>'channel','wholesale')));
+  v_id := _create_order(p, nullif(p->>'customer_id',''), coalesce(p->>'channel','wholesale'));
+  perform _log('order', v_id, 'created a sales order for ' || (select name from customers where id = p->>'customer_id') || ': ' || _lines_text(v_id));
+  return jsonb_build_object('id', v_id);
 end $$;
 
 -- 11. CUSTOMER PORTAL: a logged-in customer places an order for pickup
@@ -219,7 +267,7 @@ grant execute on function free_stock() to authenticated;
 
 create or replace function place_pickup_order(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_cust text := my_customer_id(); r record; v_have numeric;
+declare v_cust text := my_customer_id(); r record; v_have numeric; v_id text;
 begin
   if v_cust is null then raise exception 'This login is not linked to a customer account'; end if;
   for r in select x.item_id, sum(x.qty) qty from jsonb_to_recordset(p->'lines') as x(item_id text, qty numeric) group by x.item_id
@@ -231,9 +279,11 @@ begin
     end if;
   end loop;
   -- customers cannot set their own prices
-  return jsonb_build_object('id', _create_order(
+  v_id := _create_order(
     jsonb_set(p, '{lines}', (select jsonb_agg(jsonb_build_object('item_id', x->>'item_id', 'qty', (x->>'qty')::numeric)) from jsonb_array_elements(p->'lines') x)),
-    v_cust, 'portal'));
+    v_cust, 'portal');
+  perform _log('order', v_id, 'placed a pickup order (customer portal): ' || _lines_text(v_id) || ' · pickup at ' || _lname(p->>'location_id'));
+  return jsonb_build_object('id', v_id);
 end $$;
 
 -- Ship whatever is available; the rest stays backordered on the order.
@@ -265,6 +315,8 @@ begin
   if v_back = 0 then
     update sales set status = 'fulfilled', fulfilled_at = now() where id = p_id;
   end if;
+  perform _log('order', p_id, 'shipped ' || _n(v_shipped) || ' units on ' || p_id || ' for ' || (select name from customers where id = so.customer_id)
+    || case when v_back > 0 then ' (' || _n(v_back) || ' backordered)' else '' end);
   return jsonb_build_object('id', p_id, 'shipped', v_shipped, 'backordered', v_back, 'revenue', round(g-d,2), 'cost', round(c,2));
 end $$;
 
@@ -276,6 +328,7 @@ begin
   select * into so from sales where id = p_id for update;
   if so.status = 'fulfilled' or (so.status = 'placed' and exists (select 1 from sales_lines where sale_id = p_id and qty_shipped > 0)) then
     update sales set status = 'closed', closed_at = now() where id = p_id;
+    perform _log('order', p_id, 'closed sales order ' || p_id);
   else
     raise exception 'Only fulfilled (or partly shipped) orders can be closed';
   end if;
@@ -293,6 +346,7 @@ begin
     raise exception 'Only orders that have not shipped anything can be cancelled';
   end if;
   update sales set status = 'cancelled', cancel_reason = coalesce(nullif(p_reason,''),'Cancelled'), closed_at = now() where id = p_id;
+  perform _log('order', p_id, 'cancelled sales order ' || p_id || coalesce(' (' || nullif(p_reason,'') || ')', ''));
 end $$;
 
 -- =====================================================================
@@ -363,6 +417,8 @@ begin
 
   update returns set refund_total = v_refund, exchange_sale_id = v_ex_id, net_due = round(v_ex_total - v_refund, 2)
    where id = v_id;
+  perform _log('return', v_id, case when v_ex_id is null then 'processed a return' else 'processed an exchange' end || ' on ' || so.id
+    || ' · refund ' || _money(v_refund) || coalesce(' · new sale ' || v_ex_id, ''));
   return jsonb_build_object('id', v_id, 'refund', v_refund, 'cost_reversed', round(v_rcost,2),
                             'exchange_sale_id', v_ex_id, 'exchange_total', v_ex_total, 'net_due', round(v_ex_total - v_refund,2));
 end $$;
@@ -380,6 +436,7 @@ begin
   select avg_cost into v_cost from items where id = p_item;
   perform _move(p_item, p_from, -p_qty, v_cost, 'transfer', 'transfer', v_id, p_note);
   perform _move(p_item, p_to,    p_qty, v_cost, 'transfer', 'transfer', v_id, p_note);
+  perform _log('inventory', v_id, 'moved ' || _n(p_qty) || '× ' || _iname(p_item) || ' from ' || _lname(p_from) || ' to ' || _lname(p_to));
   return jsonb_build_object('id', v_id);
 end $$;
 
@@ -402,6 +459,8 @@ begin
     perform _gl(now(), 'Inventory', v_delta * v_cost, 0, 'adjustment', v_id, p->>'reason');
     perform _gl(now(), 'Inventory Adjustments', 0, v_delta * v_cost, 'adjustment', v_id, p->>'reason');
   end if;
+  perform _log('inventory', v_id, 'adjusted ' || _iname(v_item) || ' at ' || _lname(v_loc) || ' by ' || case when v_delta > 0 then '+' else '' end
+    || _n(v_delta) || ' (' || (p->>'reason') || ')');
   return jsonb_build_object('id', v_id, 'before', v_have, 'delta', v_delta, 'after', v_have + v_delta, 'value', round(v_delta * v_cost,2));
 end $$;
 
@@ -426,6 +485,7 @@ begin
   -- bought items take their supplier's quoted lead time (feeds ROP, EOQ and MRP)
   update items set lead_time_days = (p->>'lead_time_days')::int
    where supplier_id = v_id and make_or_buy = 'Buy' and p->>'lead_time_days' is not null;
+  perform _log('master', v_id, 'saved supplier ' || (p->>'name'));
   return jsonb_build_object('id', v_id);
 end $$;
 
@@ -445,6 +505,7 @@ begin
     insert into po_lines(po_id, item_id, qty_ordered, unit_cost)
     values (v_id, r.item_id, r.qty, coalesce(r.unit_cost, (select std_cost from items where id = r.item_id)));
   end loop;
+  perform _log('purchasing', v_id, 'created ' || v_id || ' for ' || (select name from suppliers where id = p->>'supplier_id') || ': ' || _lines_text(v_id));
   if coalesce((p->>'send')::boolean, false) then perform send_po(v_id, nullif(p->>'sent_date','')::date); end if;
   return jsonb_build_object('id', v_id);
 end $$;
@@ -461,6 +522,7 @@ begin
   update purchase_orders set status = 'sent', sent_date = v_date, expected_date = v_date + v_lt,
     payment_terms = (select payment_terms from suppliers where id = po.supplier_id)
    where id = p_id;
+  perform _log('purchasing', p_id, 'sent ' || p_id || ' to ' || (select name from suppliers where id = po.supplier_id) || ' · expected ' || to_char(v_date + v_lt, 'Mon DD'));
   return jsonb_build_object('id', p_id, 'expected_date', v_date + v_lt);
 end $$;
 
@@ -500,6 +562,7 @@ begin
   update purchase_orders set status = case when exists (select 1 from po_lines where po_id = po.id and qty_received < qty_ordered)
                                            then 'partial' else 'received' end
    where id = po.id;
+  perform _log('purchasing', po.id, 'received ' || _n(v_qty) || ' units on ' || po.id || ' into ' || _lname(v_loc) || ' · ' || _money(v_value));
   return jsonb_build_object('id', po.id, 'qty', v_qty, 'value', round(v_value,2),
          'days_vs_expected', v_date - po.expected_date);
 end $$;
@@ -510,6 +573,7 @@ begin
   perform _require_staff();
   update purchase_orders set status = 'closed', closed_at = now() where id = p_id and status in ('received','partial');
   if not found then raise exception 'Only received or partly received POs can be closed'; end if;
+  perform _log('purchasing', p_id, 'closed ' || p_id);
 end $$;
 
 create or replace function cancel_po(p_id text) returns void
@@ -518,6 +582,7 @@ begin
   perform _require_staff();
   update purchase_orders set status = 'cancelled', closed_at = now() where id = p_id and status in ('draft','sent');
   if not found then raise exception 'Only draft or sent POs with nothing received can be cancelled'; end if;
+  perform _log('purchasing', p_id, 'cancelled ' || p_id);
 end $$;
 
 create or replace function pay_po(p_id text, p_amount numeric, p_date date default null) returns jsonb
@@ -535,6 +600,7 @@ begin
   insert into supplier_payments(po_id, amount, paid_date) values (p_id, round(p_amount,2), coalesce(p_date, current_date));
   perform _gl(now(), 'Accounts Payable', p_amount, 0, 'payment', p_id, 'Supplier payment');
   perform _gl(now(), 'Cash', 0, p_amount, 'payment', p_id, 'Supplier payment');
+  perform _log('purchasing', p_id, 'paid ' || _money(p_amount) || ' on ' || p_id);
   return jsonb_build_object('id', p_id, 'balance', round(v_billed - v_paid - p_amount,2));
 end $$;
 
@@ -564,6 +630,8 @@ begin
               else ceil(round(v_qty * b.qty_per * (1 + b.scrap_pct), 4)) end
     from bom b join items c on c.id = b.component_id
    where b.parent_id = v_item.id;
+  perform _log('production', v_id, 'created ' || v_id || ': ' || _n(v_qty) || '× ' || coalesce(v_item.name_en, v_item.name)
+    || ' · due ' || to_char(coalesce(nullif(p->>'due_date','')::date, current_date + v_item.lead_time_days), 'Mon DD'));
   return jsonb_build_object('id', v_id);
 end $$;
 
@@ -584,6 +652,7 @@ begin
   perform _gl(now(), 'WIP', v_total, 0, 'wo', p_id, 'Materials issued to production');
   perform _gl(now(), 'Inventory', 0, v_total, 'wo', p_id, 'Materials issued to production');
   update work_orders set status = 'in_progress', started_at = now(), clock_started = now(), material_cost = round(v_total,4) where id = p_id;
+  perform _log('production', p_id, 'issued materials to ' || p_id || ' (' || _n(wo.qty_planned) || '× ' || _iname(wo.item_id) || ') · ' || _money(v_total) || ' into WIP');
   return jsonb_build_object('id', p_id, 'material_cost', round(v_total,2));
 end $$;
 
@@ -633,6 +702,8 @@ begin
     started_at = v_start, finished_at = v_finish, clock_finished = now(), labor_cost = round(v_labor,4),
     unit_cost = round(v_unit,4), output_location_id = v_out
    where id = wo.id;
+  perform _log('production', wo.id, 'completed ' || wo.id || ': ' || _n(v_good) || ' good' || case when v_scrap > 0 then ', ' || _n(v_scrap) || ' scrap' else '' end
+    || ' × ' || coalesce(v_item.name_en, v_item.name) || ' → ' || _lname(v_out));
   return jsonb_build_object('id', wo.id, 'good', v_good, 'scrap', v_scrap, 'rework', v_rework,
                             'unit_cost', round(v_unit,4), 'total_cost', round(v_total,2));
 end $$;
@@ -655,6 +726,7 @@ begin
     perform _gl(now(), 'WIP', 0, v_total, 'wo', p_id, 'Components returned from cancelled WO');
   end if;
   update work_orders set status = 'cancelled', cancel_reason = p_reason, finished_at = now() where id = p_id;
+  perform _log('production', p_id, 'cancelled ' || p_id || ' (' || p_reason || ')');
   return jsonb_build_object('id', p_id, 'returned_value', round(v_total,2));
 end $$;
 
@@ -680,6 +752,7 @@ begin
     wholesale_price = excluded.wholesale_price, std_cost = excluded.std_cost, labor_cost = excluded.labor_cost,
     supplier_id = excluded.supplier_id, lead_time_days = excluded.lead_time_days, lot_rule = excluded.lot_rule,
     lot_qty = excluded.lot_qty, active = excluded.active;
+  perform _log('master', v_id, 'saved item ' || coalesce(nullif(p->>'name_en',''), p->>'name'));
   return jsonb_build_object('id', v_id);
 end $$;
 
@@ -694,6 +767,8 @@ begin
     insert into bom(parent_id, component_id, qty_per, scrap_pct) values (p_parent, p_component, p_qty, coalesce(p_scrap,0))
     on conflict (parent_id, component_id) do update set qty_per = excluded.qty_per, scrap_pct = excluded.scrap_pct;
   end if;
+  perform _log('master', p_parent, 'changed the bill of materials of ' || _iname(p_parent) || ': ' || _iname(p_component)
+    || case when coalesce(p_qty,0) <= 0 then ' removed' else ' = ' || _n(p_qty) || ' per unit' end);
 end $$;
 
 create or replace function save_customer(p jsonb) returns jsonb
@@ -708,6 +783,7 @@ begin
           coalesce((p->>'igv_exempt')::boolean,false), coalesce(nullif(p->>'price_list',''),'retail'))
   on conflict (id) do update set name = excluded.name, type = excluded.type, channel = excluded.channel, email = excluded.email,
     phone = excluded.phone, city = excluded.city, country = excluded.country, igv_exempt = excluded.igv_exempt, price_list = excluded.price_list;
+  perform _log('master', v_id, 'saved customer ' || (p->>'name'));
   return jsonb_build_object('id', v_id);
 end $$;
 
@@ -717,6 +793,7 @@ begin
   perform _require_staff();
   update settings set value = p_value where key = p_key;
   if not found then raise exception 'Unknown setting %', p_key; end if;
+  perform _log('admin', null, 'changed setting ' || p_key || ' to ' || _n(p_value));
 end $$;
 
 -- =====================================================================
@@ -761,6 +838,7 @@ begin
   perform _require_staff();
   if p_user = auth.uid() and p_role <> 'staff' then raise exception 'You cannot remove your own staff access'; end if;
   update profiles set role = p_role, customer_id = coalesce(p_customer, customer_id) where id = p_user;
+  perform _log('admin', null, 'changed ' || coalesce((select full_name from profiles where id = p_user), 'a user') || ' to ' || p_role);
 end $$;
 
 create or replace function set_team_code(p_code text) returns void
@@ -769,6 +847,7 @@ begin
   perform _require_staff();
   if length(coalesce(p_code,'')) < 6 then raise exception 'Use at least 6 characters'; end if;
   update team_config set team_code = p_code where id = 1;
+  perform _log('admin', null, 'changed the team code');
 end $$;
 
 -- =====================================================================
@@ -818,6 +897,8 @@ language plpgsql security definer set search_path = public as $$
 begin
   perform _require_staff();
   perform load_seed();
+  truncate activity;
+  perform _log('admin', null, 'reset the demo data');
 end $$;
 
 -- Lock down internal helpers so the app cannot call them directly

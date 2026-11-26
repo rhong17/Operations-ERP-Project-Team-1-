@@ -3,18 +3,25 @@
 // logged-in user (realtime), and runs business transactions (rpc calls).
 // =====================================================================
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from './supabase.js'
 import { index } from './calc.js'
 
 const STAFF_TABLES = ['settings', 'locations', 'suppliers', 'items', 'bom', 'stock', 'customers', 'profiles', 'sales', 'sales_lines',
   'returns', 'return_lines', 'purchase_orders', 'po_lines', 'po_receipts', 'supplier_payments', 'work_orders', 'wo_components',
-  'wo_issues', 'inv_moves']
+  'wo_issues', 'inv_moves', 'activity']
 const CUSTOMER_TABLES = ['settings', 'locations', 'items', 'bom', 'stock', 'customers', 'sales', 'sales_lines']
 
 // Supabase returns at most 1000 rows per request, so page through big tables
 // stable order is required for paging; most tables have an "id" column
 const ORDER = { settings: ['key'], stock: ['item_id', 'location_id'], bom: ['parent_id', 'component_id'] }
 async function fetchAll(table) {
+  if (table === 'activity') {
+    // the newest 400 lines are plenty for the Activity page; an older database without the
+    // table (02_logic.sql not re-run yet) just shows an empty feed instead of breaking the app
+    const { data, error } = await supabase.from('activity').select('*').order('id', { ascending: false }).limit(400)
+    return error ? [] : data
+  }
   const out = []
   for (let from = 0; ; from += 1000) {
     let q = supabase.from(table).select('*')
@@ -50,6 +57,8 @@ export function DataProvider({ profile, children }) {
   const [lastSync, setLastSync] = useState(null)
   const timer = useRef(null)
   const isStaff = profile?.role === 'staff'
+  const [online, setOnline] = useState([])          // staff signed in right now: [{ id, name, page, me }]
+  const dbRef = useRef(null); dbRef.current = db
 
   // to = optional link shown as an "Open" button on the notification
   const toast = useCallback((msg, tone = 'ok', to = null) => {
@@ -69,17 +78,57 @@ export function DataProvider({ profile, children }) {
     } catch (e) { setError(e.message) }
   }, [isStaff])
 
+  // A teammate's transaction (a new activity line by someone else) → short notice on everyone else's screen.
+  // Lines that arrive together (e.g. a return plus its exchange sale) become one notice.
+  const pending = useRef([]), pendTimer = useRef(null)
+  const teammateDid = useCallback(row => {
+    if (!row || row.user_id === profile?.id) return
+    pending.current.push(row)
+    clearTimeout(pendTimer.current)
+    pendTimer.current = setTimeout(() => {
+      const rows = pending.current; pending.current = []
+      const p = (dbRef.current?.profiles || []).find(x => x.id === rows[0].user_id)
+      const who = (p?.full_name || p?.email || 'A teammate').trim()
+      toast(`${who} ${rows[0].summary}${rows.length > 1 ? ` (+${rows.length - 1} more)` : ''}`, 'live', docLink(rows[0].doc_id) || '/activity')
+    }, 700)
+  }, [profile?.id, toast])
+
   // first load + realtime: any change by anyone triggers a refresh for everyone
   useEffect(() => {
     reload()
-    const ch = supabase.channel('erp-live')
+    let ch = supabase.channel('erp-live')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         clearTimeout(timer.current)
         timer.current = setTimeout(reload, 400)
       })
-      .subscribe(status => setLive(status === 'SUBSCRIBED'))
+    if (isStaff) ch = ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity' }, ({ new: row }) => teammateDid(row))
+    ch.subscribe(status => setLive(status === 'SUBSCRIBED'))
+    if (import.meta.env.DEV) window.__teammateDid = teammateDid     // dev only: simulate a teammate's transaction
     return () => { clearTimeout(timer.current); supabase.removeChannel(ch) }
-  }, [reload])
+  }, [reload, isStaff, teammateDid])
+
+  // Who's online: every staff screen joins a presence channel and says which page it's on.
+  const page = useLocation().pathname
+  const presence = useRef(null)
+  useEffect(() => {
+    if (!isStaff || !profile?.id) return
+    const ch = supabase.channel('erp-presence', { config: { presence: { key: profile.id } } })
+    const sync = () => {
+      const state = ch.presenceState()
+      setOnline(Object.entries(state).map(([id, metas]) => {
+        const m = [...metas].sort((a, b) => (b.at || 0) - (a.at || 0))[0] || {}
+        return { id, name: m.name || 'Teammate', page: m.page || '/', tabs: metas.length, me: id === profile.id }
+      }).sort((a, b) => b.me - a.me || a.name.localeCompare(b.name)))
+    }
+    ch.on('presence', { event: 'sync' }, sync).subscribe(status => {
+      if (status === 'SUBSCRIBED') { presence.current = ch; ch.track({ name: (profile.full_name || profile.email || '').trim(), page: location.hash.slice(1) || '/', at: Date.now() }) }
+    })
+    if (import.meta.env.DEV) window.__presence = list => setOnline(list)   // dev only: simulate teammates online
+    return () => { presence.current = null; supabase.removeChannel(ch) }
+  }, [isStaff, profile?.id, profile?.full_name, profile?.email])
+  useEffect(() => {
+    presence.current?.track({ name: (profile?.full_name || profile?.email || '').trim(), page, at: Date.now() })
+  }, [page, profile?.full_name, profile?.email])
 
   // Run a business transaction. Shows the error in plain words if the database refuses it,
   // and (for staff) opens the "ripple" panel showing every module the transaction touched.
@@ -102,6 +151,6 @@ export function DataProvider({ profile, children }) {
   }, [reload, toast, isStaff])
 
   const ix = useMemo(() => (db ? index(db) : null), [db])
-  const value = { db, ix, version, reload, call, toast, toasts, ripple, setRipple, live, lastSync, error, profile, isStaff }
+  const value = { db, ix, version, reload, call, toast, toasts, ripple, setRipple, live, lastSync, error, profile, isStaff, online }
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>
 }

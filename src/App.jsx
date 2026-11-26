@@ -2,7 +2,7 @@ import { Component, useEffect, useState } from 'react'
 import { HashRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { supabase, configured } from './lib/supabase.js'
 import { DataProvider, useData } from './lib/data.jsx'
-import { Toasts, RipplePanel, LiveDot, LoadingScreen } from './components/ui.jsx'
+import { Toasts, RipplePanel, LiveDot, LoadingScreen, OnlineUsers } from './components/ui.jsx'
 import { QuickSearch, QuickSearchButton } from './components/QuickSearch.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
@@ -20,6 +20,7 @@ import Customers from './pages/Customers.jsx'
 import Settings from './pages/Settings.jsx'
 import About from './pages/About.jsx'
 import Portal from './pages/Portal.jsx'
+import Activity from './pages/Activity.jsx'
 import Login from './pages/Login.jsx'
 
 export default function App() {
@@ -63,7 +64,7 @@ export default function App() {
 }
 
 const STAFF_NAV = [
-  ['Overview', [['/', 'Dashboard']]],
+  ['Overview', [['/', 'Dashboard'], ['/activity', 'Activity']]],
   ['Sell', [['/pos', 'Point of Sale'], ['/sales', 'Sales Orders', 'openSO'], ['/returns', 'Returns & Exchanges'], ['/portal-preview', 'Customer Portal']]],
   ['Make & Stock', [['/inventory', 'Inventory'], ['/production', 'Production Orders', 'openWO'], ['/mrp', 'MRP']]],
   ['Buy', [['/purchasing', 'Purchasing & Suppliers', 'openPO']]],
@@ -110,6 +111,7 @@ function Shell({ profile }) {
         <header className="topbar">
           <button className="btn small menu-btn" onClick={() => setMenu(!menu)}>☰ Menu</button>
           {isStaff && <QuickSearchButton />}
+          {isStaff && <OnlineUsers pages={STAFF_PAGES} />}
           <LiveDot />
           <span className="who">{profile.full_name || profile.email} · <b>{isStaff ? 'Staff' : 'Customer'}</b></span>
           <button className="btn small" onClick={() => supabase.auth.signOut()}>Sign out</button>
@@ -119,6 +121,7 @@ function Shell({ profile }) {
         {isStaff ? (
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/activity" element={<Activity />} />
             <Route path="/pos" element={<POS />} />
             <Route path="/sales" element={<SalesOrders />} />
             <Route path="/returns" element={<Returns />} />
