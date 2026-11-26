@@ -271,13 +271,13 @@ export function scanFeedback(ok) {
 // onResult(code) returns { ok, item?, text? } (or true/false).
 // continuous = keep the camera open and keep a running tally (POS); otherwise close after one good scan.
 export function CameraScanner({ onResult, onClose, continuous = false, title = 'Scan barcode' }) {
-  const video = useRef()
+  const video = useRef(), stage = useRef(), frame = useRef()
   const cb = useRef(onResult); cb.current = onResult
   const closeRef = useRef(onClose); closeRef.current = onClose
   const [err, setErr] = useState(null)
   const [ready, setReady] = useState(false)
   const [flash, setFlash] = useState(null)           // 'ok' | 'bad' | null
-  const [status, setStatus] = useState({ kind: 'idle', text: 'Point the camera at a barcode — it scans automatically.' })
+  const [status, setStatus] = useState({ kind: 'idle', text: 'Line up the barcode inside the box — it scans automatically.' })
   const [tally, setTally] = useState([])             // [{ key, item, label, count }]
   const [sound, setSound] = useState(() => { try { return localStorage.getItem('scanSound') !== 'off' } catch { return true } })
   const [engine, setEngine] = useState(null)        // 'fast' (built-in detector) | 'standard' (WebAssembly engine)
@@ -316,14 +316,24 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           detector = new Wasm({ formats: fmts }); setEngine('standard')
         }
         if (stopped) return
-        // For the WebAssembly engine, every other try uses a grey, contrast-boosted copy of the frame:
+        // Only the highlighted box is read: each frame, the part of the video under the box is copied to a
+        // canvas and only that is searched — so a label elsewhere in view is ignored (and reads are faster).
+        // For the WebAssembly engine, every other try also makes that crop grey and contrast-boosted:
         // rescues dim, slightly blurred or tilted labels (done in plain JS so older Safari works too).
-        const boostCanvas = document.createElement('canvas'), bctx = boostCanvas.getContext('2d', { willReadFrequently: true })
-        const boosted = v => {
-          const scale = Math.min(1, 960 / v.videoWidth)
-          boostCanvas.width = Math.round(v.videoWidth * scale); boostCanvas.height = Math.round(v.videoHeight * scale)
-          bctx.drawImage(v, 0, 0, boostCanvas.width, boostCanvas.height)
-          const img = bctx.getImageData(0, 0, boostCanvas.width, boostCanvas.height), d = img.data
+        const cropCanvas = document.createElement('canvas'), cctx = cropCanvas.getContext('2d', { willReadFrequently: true })
+        const boxCrop = (v, boost, maxW) => {
+          const st = stage.current?.getBoundingClientRect(), fr = frame.current?.getBoundingClientRect()
+          if (!st || !fr || !st.width) return v
+          // the video is shown with object-fit: cover — undo that scale and offset to get video pixels
+          const s = Math.max(st.width / v.videoWidth, st.height / v.videoHeight)
+          const ox = (st.width - v.videoWidth * s) / 2, oy = (st.height - v.videoHeight * s) / 2
+          const sx = Math.max(0, (fr.left - st.left - ox) / s), sy = Math.max(0, (fr.top - st.top - oy) / s)
+          const sw = Math.min(v.videoWidth - sx, fr.width / s), sh = Math.min(v.videoHeight - sy, fr.height / s)
+          const scale = Math.min(1, maxW / sw)
+          cropCanvas.width = Math.max(1, Math.round(sw * scale)); cropCanvas.height = Math.max(1, Math.round(sh * scale))
+          cctx.drawImage(v, sx, sy, sw, sh, 0, 0, cropCanvas.width, cropCanvas.height)
+          if (!boost) return cropCanvas
+          const img = cctx.getImageData(0, 0, cropCanvas.width, cropCanvas.height), d = img.data
           for (let i = 0; i < d.length; i += 4) {
             const g = Math.max(0, Math.min(255, (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] - 128) * 1.7 + 128))
             d[i] = d[i + 1] = d[i + 2] = g
@@ -338,7 +348,7 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           const v = video.current
           if (busy || t - lastRun < 70 || !v || v.readyState < 2 || !v.videoWidth) return      // up to ~14 reads per second
           busy = true; lastRun = t; flip = !flip
-          try { const found = await detector.detect(wasmEngine && flip ? boosted(v) : v); if (found[0]?.rawValue) handle(found[0].rawValue) } catch { /* frame not ready */ }
+          try { const found = await detector.detect(boxCrop(v, wasmEngine && flip, wasmEngine ? 960 : 1280)); if (found[0]?.rawValue) handle(found[0].rawValue) } catch { /* frame not ready */ }
           busy = false
         }
         raf = requestAnimationFrame(tick)
@@ -389,9 +399,9 @@ export function CameraScanner({ onResult, onClose, continuous = false, title = '
           <button type="button" className="scan-iconbtn" onClick={toggleSound} title={sound ? 'Sound on' : 'Sound off'}>{sound ? 'Sound on' : 'Sound off'}</button>
           <button type="button" className="scan-iconbtn" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div className="scan-stage">
+        <div className="scan-stage" ref={stage}>
           <video ref={video} className="scan-video" muted playsInline />
-          {!err && <div className={'scan-frame' + (ready ? ' live' : '')}><i /><i /><i /><i /><div className="scan-laser" /></div>}
+          {!err && <div ref={frame} className={'scan-frame' + (ready ? ' live' : '')}><i /><i /><i /><i /><div className="scan-laser" /></div>}
           {flash === 'ok' && <div className="scan-burst"><span>✓</span></div>}
           {!ready && !err && <div className="scan-wait">Starting camera…</div>}
         </div>
