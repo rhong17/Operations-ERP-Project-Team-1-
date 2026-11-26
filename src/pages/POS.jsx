@@ -18,12 +18,14 @@ export default function POS() {
   const [cart, setCart] = useState([])
   const [allDisc, setAllDisc] = useState('')
   const [receipt, setReceipt] = useState(null)
+  const [lastAdd, setLastAdd] = useState(null)   // { id, n } — flashes the line that was just scanned
   const customer = ix.customers.get(cust)
   const rate = customer?.igv_exempt ? 0 : igv
 
   const add = item => {
     const price = netPrice(item, customer, igv)
     if (price == null) { toast(`${item.name} is a raw material — not for sale`, 'error'); return }
+    setLastAdd(a => ({ id: item.id, n: (a?.n || 0) + 1 }))
     setCart(c => {
       const i = c.findIndex(x => x.item.id === item.id)
       if (i >= 0) return c.map((x, k) => (k === i ? { ...x, qty: x.qty + 1 } : x))
@@ -71,7 +73,7 @@ export default function POS() {
             {lines.length === 0 ? <Empty icon="cart">Scan a barcode or search an item to start a sale.</Empty> : (
               <div className="tbl-wrap"><table className="tbl lines"><thead><tr><th>Item</th><th className="num">On hand here</th><th className="num">Qty</th><th className="num">Price (pre-IGV)</th><th className="num">Disc %</th><th className="num">Net</th><th></th></tr></thead>
                 <tbody>{lines.map((l, i) => (
-                  <tr key={l.item.id}>
+                  <tr key={l.item.id + (lastAdd?.id === l.item.id ? '-' + lastAdd.n : '')} className={lastAdd?.id === l.item.id ? 'row-flash' : ''}>
                     <td><ItemName item={l.item} /><div className="muted small">{l.item.name_es} · {l.item.ean}</div></td>
                     <td className={'num ' + (l.qty > l.avail ? 'neg' : '')}>{qtyFmt(l.avail, l.item.uom)}</td>
                     <td className="num"><input type="number" min="1" value={l.qty} onChange={e => upd(i, { qty: Math.max(1, Number(e.target.value) || 1) })} /></td>
