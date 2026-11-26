@@ -11,6 +11,16 @@ export default function Items() {
   useOpenParam(id => { const it = db.items.find(i => i.id === id); if (it) setEdit(it) })
   const [bom, setBom] = useState(null)
   const policy = useMemo(() => new Map(inventoryPolicy(db, ix).map(p => [p.item.id, p])), [db, ix])
+  // Components aren't sold, so their price is what we pay: the newest purchase-order price, else standard cost
+  const lastBuy = useMemo(() => {
+    const m = new Map()
+    for (const l of db.po_lines) {
+      const at = ix.pos.get(l.po_id)?.created_at || ''
+      if (!m.has(l.item_id) || at > m.get(l.item_id).at) m.set(l.item_id, { at, cost: Number(l.unit_cost) })
+    }
+    return m
+  }, [db.po_lines, ix])
+  const buyPrice = i => lastBuy.get(i.id)?.cost ?? Number(i.std_cost)
   const list = db.items.filter(i => (!type || i.item_type === type) && (!q || (i.name + (i.name_es || '') + i.ean + i.id + (i.sku || '')).toLowerCase().includes(q.toLowerCase())))
   return (
     <Page title="Items & Bills of Materials" subtitle={`${db.items.length} items · ${new Set(db.bom.map(b => b.parent_id)).size} parent items with a BOM`}
@@ -24,10 +34,10 @@ export default function Items() {
           <select style={{ maxWidth: 200 }} value={type} onChange={e => setType(e.target.value)}><option value="">All types</option><option>Finished Good</option><option>Kit</option><option>Component</option></select>
           <div className="spacer" /><button className="btn primary" onClick={() => setEdit({ item_type: 'Component', uom: 'unit', make_or_buy: 'Buy', lot_rule: 'L4L', active: true, lead_time_days: 7, std_cost: 0 })}>+ New item</button>
         </div>
-        <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Barcode</th><th>Type</th><th className="num">Std cost</th><th className="num">Avg cost</th><th className="num">Retail (IGV incl.)</th><th className="num">Wholesale</th><th className="num">Lead time</th><th className="num">ROP</th><th className="num">EOQ</th><th>Lot rule</th><th className="num">On hand</th><th></th></tr></thead><tbody>
+        <div className="tbl-wrap"><table className="tbl compact"><thead><tr><th>Item</th><th>Barcode</th><th>Type</th><th className="num">Std cost</th><th className="num">Avg cost</th><th className="num" title="Retail price incl. IGV for items we sell; latest supplier price for components we buy">Price</th><th className="num">Wholesale</th><th className="num">Lead time</th><th className="num">ROP</th><th className="num">EOQ</th><th>Lot rule</th><th className="num">On hand</th><th></th></tr></thead><tbody>
           {list.map(i => { const p = policy.get(i.id); return <tr key={i.id} className={i.active ? '' : 'dim'}>
             <td><ItemName item={i} /><span className="es">{i.name_es}</span><div className="small muted">{i.id} · {i.variant_sku || i.sku}</div></td><td className="small">{i.ean}</td><td>{i.item_type}</td>
-            <td className="num">{money(i.std_cost)}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{i.sale_price ? money(i.sale_price) : '—'}</td><td className="num">{i.wholesale_price ? money(i.wholesale_price) : '—'}</td>
+            <td className="num">{money(i.std_cost)}</td><td className="num">{money(i.avg_cost)}</td><td className="num">{i.sale_price ? money(i.sale_price) : <>{money(buyPrice(i))}<div className="small muted">purchase</div></>}</td><td className="num">{i.wholesale_price ? money(i.wholesale_price) : '—'}</td>
             <td className="num">{i.lead_time_days} d</td><td className="num">{p ? num(p.rop, 1) : '—'}</td><td className="num">{p ? num(p.eoq, 0) : '—'}</td><td>{i.lot_rule}{i.lot_rule === 'FOQ' ? ' ' + i.lot_qty : ''}</td>
             <td className="num">{qtyFmt(ix.onHand(i.id), i.uom)}</td>
             <td className="row gap">{ix.bomBy.has(i.id) && <button className="btn small" onClick={() => setBom(i)}>BOM</button>}<button className="btn small" onClick={() => setEdit(i)}>Edit</button></td></tr> })}
