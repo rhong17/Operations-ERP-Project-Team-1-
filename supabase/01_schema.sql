@@ -6,7 +6,7 @@
 -- =====================================================================
 create extension if not exists pgcrypto;
 
-drop table if exists ledger, inv_moves, wo_issues, wo_components, work_orders,
+drop table if exists activity, ledger, inv_moves, wo_issues, wo_components, work_orders,
   supplier_payments, po_receipts, po_lines, purchase_orders,
   return_lines, returns, sales_lines, sales, stock, bom, items,
   customers, suppliers, locations, settings, doc_counters, team_config cascade;
